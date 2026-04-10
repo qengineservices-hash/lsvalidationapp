@@ -1,10 +1,4 @@
 {
   "/not-found": "app/not-found.js",
-  "/admin/page": "app/admin/page.js",
-  "/designer/page": "app/designer/page.js",
-  "/validation-requests/new/page": "app/validation-requests/new/page.js",
-  "/validation-lead/page": "app/validation-lead/page.js",
-  "/validation-lead/validate/[requestId]/page": "app/validation-lead/validate/[requestId]/page.js",
-  "/login/page": "app/login/page.js",
-  "/manager/page": "app/manager/page.js"
+  "/validation-lead/validate/[requestId]/page": "app/validation-lead/validate/[requestId]/page.js"
 }
