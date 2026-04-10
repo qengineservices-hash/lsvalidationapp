@@ -1,0 +1,21 @@
+{
+  "name": "LS Services",
+  "short_name": "LSS",
+  "description": "Livspace Services Site Validation App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3d8f",
+  "theme_color": "#FF6B35",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
