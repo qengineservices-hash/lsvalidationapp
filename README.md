@@ -2,9 +2,17 @@
 
 An app for validation — from request to quotation.
 
+1. Designer can place request for site validation for services. 
+2. Request to be assigned to Valdaition lead by respective city VM. 
+3. Validation lead can go to site and do a detailed site validation (put all the measurement/click photos/annotate images).
+4. Generate report at site level and should be able to share with the designer via email or whats app.
+5. Q Engine should get generated with the same measurement (Qengine as it is excel file with MRC, SKU selection, auto measurement for some categories, aligned to work packages with download feature quotation as per Canvas - see if later API inttegration can be done with the same with limiting access to edit in RFV section to maintain sanity)
+6. Check wether Supply flow can be integrated or not with the same. 
+7. Dashboards to be created real time for PAN India level (Total validation request tracking, total valdation done, total quotation given). Later we can build different error reports as well with this. 
+
 ## Tech Stack
 
-- **Frontend**: React + Vite
+- **Frontend**: Node Js
 - **Backend / Database**: Supabase
 - **State Management**: Zustand
 - **Data Fetching**: TanStack React Query
