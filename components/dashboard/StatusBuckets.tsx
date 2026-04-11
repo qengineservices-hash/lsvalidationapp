@@ -19,7 +19,8 @@ const BUCKETS: { key: RequestStatus; label: string; emoji: string }[] = [
   { key: "assigned", label: "Assigned", emoji: "📋" },
   { key: "in_progress", label: "Ongoing", emoji: "🔄" },
   { key: "on_hold", label: "On Hold", emoji: "⏸️" },
-  { key: "completed", label: "Completed", emoji: "✅" },
+  { key: "validation_done", label: "Validation Done", emoji: "🏁" },
+  { key: "report_generated", label: "Report Generated", emoji: "✅" },
 ];
 
 export default function StatusBuckets({

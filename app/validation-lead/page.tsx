@@ -41,7 +41,8 @@ export default function ValidationLeadDashboard() {
             { key: "assigned", label: "New", emoji: "🆕" },
             { key: "in_progress", label: "Ongoing", emoji: "🔄" },
             { key: "on_hold", label: "On Hold", emoji: "⏸️" },
-            { key: "completed", label: "Completed", emoji: "✅" },
+            { key: "validation_done", label: "Done", emoji: "🏁" },
+            { key: "report_generated", label: "Completed", emoji: "✅" },
           ]}
           getActionHref={(req) => req.status === "assigned" ? undefined : `/validation-lead/validate/${req.id}`}
           renderActions={(req) => {

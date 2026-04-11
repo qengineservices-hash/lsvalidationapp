@@ -25,6 +25,8 @@ export default function NewValidationRequestPage() {
     priority: "P2" as "P0" | "P1" | "P2",
     priority_reason: "",
     special_instructions: "",
+    scheduled_date: "",
+    scheduled_time: "",
     assigned_to: "",  // Only used by VM
   });
 
@@ -44,8 +46,13 @@ export default function NewValidationRequestPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.pid || !form.customer_name || !form.city_id) {
-      alert("PID, Customer Name, and City are required.");
+    if (!form.pid || !form.customer_name || !form.city_id || !form.customer_phone || !form.address) {
+      alert("PID, Customer Name, Phone, Address, and City are required.");
+      return;
+    }
+    
+    if (!/^\d{10}$/.test(form.customer_phone)) {
+      alert("Customer Phone must be exactly 10 digits.");
       return;
     }
 
@@ -64,6 +71,8 @@ export default function NewValidationRequestPage() {
       priority: form.priority,
       priority_reason: form.priority_reason,
       special_instructions: form.special_instructions,
+      scheduled_date: form.scheduled_date,
+      scheduled_time: form.scheduled_time,
       requested_by: currentUser.id,
       assigned_to: form.assigned_to || "",
       assigned_by: form.assigned_to ? currentUser.id : "",
@@ -135,13 +144,15 @@ export default function NewValidationRequestPage() {
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-livspace-gray-500">
-                Customer Phone
+                Customer Phone *
               </label>
               <input
                 type="text"
+                required
+                maxLength={10}
                 placeholder="9876543210"
                 value={form.customer_phone}
-                onChange={(e) => update("customer_phone", e.target.value)}
+                onChange={(e) => update("customer_phone", e.target.value.replace(/\D/g, ""))}
                 className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
               />
             </div>
@@ -185,10 +196,11 @@ export default function NewValidationRequestPage() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-[10px] font-bold uppercase tracking-wider text-livspace-gray-500">
-                Full Address
+                Full Address *
               </label>
               <textarea
                 rows={2}
+                required
                 placeholder="Full address with landmark"
                 value={form.address}
                 onChange={(e) => update("address", e.target.value)}
@@ -216,6 +228,30 @@ export default function NewValidationRequestPage() {
                 placeholder="4th"
                 value={form.floor_no}
                 onChange={(e) => update("floor_no", e.target.value)}
+                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+              />
+            </div>
+            
+            {/* Scheduled Date/Time */ }
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-livspace-gray-500">
+                Scheduled Date
+              </label>
+              <input
+                type="date"
+                value={form.scheduled_date}
+                onChange={(e) => update("scheduled_date", e.target.value)}
+                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-livspace-gray-500">
+                Scheduled Time
+              </label>
+              <input
+                type="time"
+                value={form.scheduled_time}
+                onChange={(e) => update("scheduled_time", e.target.value)}
                 className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
               />
             </div>

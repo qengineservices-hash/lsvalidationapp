@@ -26,7 +26,7 @@ export interface City {
   is_active: boolean;
 }
 
-export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "completed";
+export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "validation_done" | "report_generated";
 
 export interface ValidationRequest {
   id: string;
@@ -47,7 +47,12 @@ export interface ValidationRequest {
   assigned_to: string;    // VL user id
   assigned_by: string;    // VM user id
   status: RequestStatus;
+  scheduled_date?: string;
+  scheduled_time?: string;
+  start_time?: string;
+  end_time?: string;
   on_hold_reason?: string;
+  validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
   updated_at: string;
 }

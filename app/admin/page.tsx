@@ -16,6 +16,7 @@ import {
   Building2,
 } from "lucide-react";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
+import { exportGlobalTracker } from "@/lib/exportTracker";
 
 // ===================================================
 // TAB DEFINITIONS
@@ -569,9 +570,17 @@ function AllRequestsTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-bold text-livspace-dark">
-        All Requests ({validationRequests.length})
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-livspace-dark">
+          All Requests ({validationRequests.length})
+        </h3>
+        <button
+          onClick={() => exportGlobalTracker(validationRequests, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" /> Download Global Tracker
+        </button>
+      </div>
       <StatusBuckets 
         requests={validationRequests} 
         showAssignee 

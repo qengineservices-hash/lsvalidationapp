@@ -4,7 +4,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import Link from "next/link";
-import { PlusCircle, FileText, MapPin } from "lucide-react";
+import { PlusCircle, FileText, MapPin, FileDown } from "lucide-react";
+import { exportGlobalTracker } from "@/lib/exportTracker";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -81,13 +82,21 @@ export default function ManagerDashboard() {
 
       {/* Request Buckets */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
-          <FileText className="w-5 h-5 text-livspace-gray-500" />
-          Validation Requests
-          <span className="text-sm font-normal text-livspace-gray-400">
-            ({filteredRequests.length})
-          </span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
+            <FileText className="w-5 h-5 text-livspace-gray-500" />
+            Validation Requests
+            <span className="text-sm font-normal text-livspace-gray-400">
+              ({filteredRequests.length})
+            </span>
+          </h2>
+          <button
+            onClick={() => exportGlobalTracker(filteredRequests, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Download Excel
+          </button>
+        </div>
 
         <StatusBuckets 
           requests={filteredRequests} 

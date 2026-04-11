@@ -18,7 +18,8 @@ const STATUS_STYLES: Record<RequestStatus, { label: string; bg: string; text: st
   assigned: { label: "Assigned", bg: "bg-purple-100", text: "text-purple-700" },
   in_progress: { label: "In Progress", bg: "bg-amber-100", text: "text-amber-700" },
   on_hold: { label: "On Hold", bg: "bg-red-100", text: "text-red-700" },
-  completed: { label: "Completed", bg: "bg-green-100", text: "text-green-700" },
+  validation_done: { label: "Validation Done", bg: "bg-green-100", text: "text-green-700" },
+  report_generated: { label: "Report Generated", bg: "bg-emerald-100", text: "text-emerald-800" },
 };
 
 export default function RequestCard({
@@ -87,6 +88,13 @@ export default function RequestCard({
             month: "short",
             year: "numeric",
           })}
+          
+          {request.scheduled_date && (
+            <span className="ml-2 pl-2 border-l border-livspace-gray-200">
+              📅 {request.scheduled_date} {request.scheduled_time && `🕒 ${request.scheduled_time}`}
+            </span>
+          )}
+          
           {request.priority !== "P2" && (
             <span
               className={cn(

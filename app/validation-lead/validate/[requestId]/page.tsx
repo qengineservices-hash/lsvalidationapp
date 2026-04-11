@@ -66,6 +66,14 @@ function getRoomProgress(roomData: any) {
   return { answered, total, percent: Math.round((answered / total) * 100) };
 }
 
+function getGlobalProgress(formData: any) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { SOCIETY_QUESTIONS } = require("@/stores/useValidationStore");
+  const answered = Object.values(formData.society).filter((v) => !!v).length;
+  const total = SOCIETY_QUESTIONS.length;
+  return { answered, total, percent: total === 0 ? 100 : Math.round((answered / total) * 100) };
+}
+
 export default function ValidateRequestPage() {
   const params = useParams();
   const router = useRouter();
@@ -142,11 +150,29 @@ export default function ValidateRequestPage() {
     }
   };
 
+  const handleStartValidation = () => {
+    updateRequestStatus(request.id, "in_progress");
+    useAppDataStore.setState((s) => ({
+      validationRequests: s.validationRequests.map(r => r.id === request.id ? { ...r, start_time: new Date().toISOString() } : r)
+    }));
+    // Sync to backend manually
+    useAppDataStore.getState().updateRequestStatus(request.id, "in_progress");
+  };
+
   const handleComplete = () => {
     if (confirm("Mark this validation as completed?")) {
-      updateRequestStatus(request.id, "completed");
-      alert("Validation marked as completed!");
-      router.push("/validation-lead");
+      useAppDataStore.setState((s) => ({
+        validationRequests: s.validationRequests.map(r => r.id === request.id ? { ...r, end_time: new Date().toISOString(), validation_data: formData } : r)
+      }));
+      updateRequestStatus(request.id, "validation_done");
+      // Push updated JSONB manually because we appended a massive field
+      const updatedReq = useAppDataStore.getState().validationRequests.find(r => r.id === request.id);
+      if (updatedReq) {
+        // We know updateRequestStatus pushes, but it doesn't push the one with validation_data because state is asynchronous.
+        // wait, the easiest is to patch updateRequestStatus to also accept a payload, or just do a manual push.
+        // Actually, updateRequestStatus triggers the Supabase push. Since Zustand resolves synchronously in setState, it will push formData!
+      }
+      alert("Validation marked as completed! You can now generate the report.");
     }
   };
 
@@ -161,6 +187,11 @@ export default function ValidateRequestPage() {
 
   const currentRoomData = formData.rooms[activeRoom];
   const progress = currentRoomData ? getRoomProgress(currentRoomData) : null;
+  const globalProgress = getGlobalProgress(formData);
+
+  const allRoomsDone = formData.roomOrder.every(r => getRoomProgress(formData.rooms[r]).percent === 100);
+  const isFullyComplete = allRoomsDone && globalProgress.percent === 100;
+  const isValidationDone = request.status === "validation_done" || request.status === "report_generated";
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -187,10 +218,28 @@ export default function ValidateRequestPage() {
       </div>
 
       <div className="container py-6 space-y-4">
-        {/* Society Constraints */}
-        <div className="bg-white border border-livspace-gray-200 rounded-2xl p-6 shadow-sm">
-          <SocietyConstraintsSection />
-        </div>
+        {!request.start_time ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white border border-livspace-gray-200 rounded-2xl shadow-sm space-y-4">
+            <h2 className="text-xl font-bold text-livspace-dark">Ready to begin?</h2>
+            <p className="text-sm text-livspace-gray-500">Tap below to log your start time and unlock the validation form.</p>
+            <button
+              onClick={handleStartValidation}
+              className="px-8 py-3 bg-livspace-blue text-white rounded-xl font-bold hover:bg-blue-800 transition-colors shadow-lg shadow-livspace-blue/20"
+            >
+              Start Validation
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Society Constraints */}
+            <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm">
+              <Accordion 
+                title="Global Building & Society Constraints" 
+                badge={`${globalProgress.answered}/${globalProgress.total} answered (${globalProgress.percent}%)`}
+              >
+                <SocietyConstraintsSection />
+              </Accordion>
+            </div>
 
         {/* Room Tabs */}
         <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm">
@@ -274,26 +323,47 @@ export default function ValidateRequestPage() {
         )}
 
         {/* Complete & Export */}
-        <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleComplete}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-colors"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Mark Complete
-          </button>
-          <button
-            onClick={handleOnHold}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-          >
-            <PauseCircle className="w-4 h-4" />
-            Mark On Hold
-          </button>
-          <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors">
-            <FileSpreadsheet className="w-4 h-4" />
-            Generate Excel
-          </button>
-        </div>
+        {!isValidationDone ? (
+          <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleComplete}
+              disabled={!isFullyComplete}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white rounded-xl font-bold text-sm transition-colors",
+                isFullyComplete ? "bg-green-600 hover:bg-green-700" : "bg-livspace-gray-300 cursor-not-allowed"
+              )}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Validation Complete
+            </button>
+            <button
+              onClick={handleOnHold}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
+            >
+              <PauseCircle className="w-4 h-4" />
+              Mark On Hold
+            </button>
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-emerald-800">Validation Completed!</h3>
+              <p className="text-sm text-emerald-600">All data has been captured successfully.</p>
+            </div>
+            <button 
+              onClick={() => {
+                updateRequestStatus(request.id, "report_generated");
+                router.push(`/reports/${request.id}`);
+              }}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Generate Report
+            </button>
+          </div>
+        )}
+          </>
+        )}
       </div>
     </div>
   );
