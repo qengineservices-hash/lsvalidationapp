@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createClient } from "@/lib/supabase/client";
 import type { AppUser, UserRole } from "./useAuthStore";
 
 // ===================================================
@@ -114,121 +114,144 @@ const SEED_ADMIN: AppUser = {
 };
 
 export const useAppDataStore = create<AppDataState>()(
-  persist(
-    (set, get) => ({
-      users: [SEED_ADMIN],
-      cities: DEFAULT_CITIES,
-      vmVlAssignments: [],
-      userCities: [],
-      validationRequests: [],
+  (set, get) => ({
+    users: [SEED_ADMIN],
+    cities: DEFAULT_CITIES,
+    vmVlAssignments: [],
+    userCities: [],
+    validationRequests: [],
 
-      // ---- Users ----
-      addUser: (user) =>
-        set((s) => ({ users: [...s.users, user] })),
+    // ---- Users ----
+    addUser: (user) => {
+      set((s) => ({ users: [...s.users, user] }));
+      createClient().from("app_users").insert(user).then();
+    },
 
-      updateUser: (id, data) =>
-        set((s) => ({
-          users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)),
-        })),
+    updateUser: (id, data) => {
+      set((s) => ({
+        users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)),
+      }));
+      createClient().from("app_users").update(data).eq("id", id).then();
+    },
 
-      getUserById: (id) => get().users.find((u) => u.id === id),
+    getUserById: (id) => get().users.find((u) => u.id === id),
 
-      getUsersByRole: (role) =>
-        get().users.filter((u) => u.role === role && u.is_active),
+    getUsersByRole: (role) =>
+      get().users.filter((u) => u.role === role && u.is_active),
 
-      // ---- Cities ----
-      addCity: (city) =>
-        set((s) => ({ cities: [...s.cities, city] })),
+    // ---- Cities ----
+    addCity: (city) => {
+      set((s) => ({ cities: [...s.cities, city] }));
+      createClient().from("app_cities").insert(city).then();
+    },
 
-      updateCity: (id, data) =>
-        set((s) => ({
-          cities: s.cities.map((c) => (c.id === id ? { ...c, ...data } : c)),
-        })),
+    updateCity: (id, data) => {
+      set((s) => ({
+        cities: s.cities.map((c) => (c.id === id ? { ...c, ...data } : c)),
+      }));
+      createClient().from("app_cities").update(data).eq("id", id).then();
+    },
 
-      deleteCity: (id) =>
-        set((s) => ({
-          cities: s.cities.filter((c) => c.id !== id),
-          userCities: s.userCities.filter((uc) => uc.city_id !== id),
-        })),
+    deleteCity: (id) => {
+      set((s) => ({
+        cities: s.cities.filter((c) => c.id !== id),
+        userCities: s.userCities.filter((uc) => uc.city_id !== id),
+      }));
+      createClient().from("app_cities").delete().eq("id", id).then();
+    },
 
-      // ---- VM-VL Assignments ----
-      assignVlToVm: (assignment) =>
-        set((s) => ({ vmVlAssignments: [...s.vmVlAssignments, assignment] })),
+    // ---- VM-VL Assignments ----
+    assignVlToVm: (assignment) => {
+      set((s) => ({ vmVlAssignments: [...s.vmVlAssignments, assignment] }));
+      createClient().from("app_vm_vl_assignments").insert(assignment).then();
+    },
 
-      removeVlFromVm: (id) =>
-        set((s) => ({
-          vmVlAssignments: s.vmVlAssignments.filter((a) => a.id !== id),
-        })),
+    removeVlFromVm: (id) => {
+      set((s) => ({
+        vmVlAssignments: s.vmVlAssignments.filter((a) => a.id !== id),
+      }));
+      createClient().from("app_vm_vl_assignments").delete().eq("id", id).then();
+    },
 
-      getVlsForVm: (vmId) => {
-        const state = get();
-        const vlIds = state.vmVlAssignments
-          .filter((a) => a.vm_id === vmId && a.is_active)
-          .map((a) => a.vl_id);
-        return state.users.filter((u) => vlIds.includes(u.id) && u.is_active);
-      },
+    getVlsForVm: (vmId) => {
+      const state = get();
+      const vlIds = state.vmVlAssignments
+        .filter((a) => a.vm_id === vmId && a.is_active)
+        .map((a) => a.vl_id);
+      return state.users.filter((u) => vlIds.includes(u.id) && u.is_active);
+    },
 
-      // ---- User-City ----
-      assignUserToCity: (userCity) =>
-        set((s) => ({ userCities: [...s.userCities, userCity] })),
+    // ---- User-City ----
+    assignUserToCity: (userCity) => {
+      set((s) => ({ userCities: [...s.userCities, userCity] }));
+      createClient().from("app_user_cities").insert(userCity).then();
+    },
 
-      removeUserFromCity: (id) =>
-        set((s) => ({
-          userCities: s.userCities.filter((uc) => uc.id !== id),
-        })),
+    removeUserFromCity: (id) => {
+      set((s) => ({
+        userCities: s.userCities.filter((uc) => uc.id !== id),
+      }));
+      createClient().from("app_user_cities").delete().eq("id", id).then();
+    },
 
-      getCitiesForUser: (userId) => {
-        const state = get();
-        const cityIds = state.userCities
-          .filter((uc) => uc.user_id === userId)
-          .map((uc) => uc.city_id);
-        return state.cities.filter((c) => cityIds.includes(c.id));
-      },
+    getCitiesForUser: (userId) => {
+      const state = get();
+      const cityIds = state.userCities
+        .filter((uc) => uc.user_id === userId)
+        .map((uc) => uc.city_id);
+      return state.cities.filter((c) => cityIds.includes(c.id));
+    },
 
-      // ---- Validation Requests ----
-      addRequest: (request) =>
-        set((s) => ({
-          validationRequests: [...s.validationRequests, request],
-        })),
+    // ---- Validation Requests ----
+    addRequest: (request) => {
+      set((s) => ({
+        validationRequests: [...s.validationRequests, request],
+      }));
+      createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
+    },
 
-      updateRequestStatus: (id, status, reason) =>
-        set((s) => ({
-          validationRequests: s.validationRequests.map((r) =>
-            r.id === id ? { ...r, status, updated_at: new Date().toISOString(), ...(reason !== undefined ? { on_hold_reason: reason } : {}) } : r
-          ),
-        })),
+    updateRequestStatus: (id, status, reason) => {
+      const updatedTimestamp = new Date().toISOString();
+      set((s) => ({
+        validationRequests: s.validationRequests.map((r) =>
+          r.id === id ? { ...r, status, updated_at: updatedTimestamp, ...(reason !== undefined ? { on_hold_reason: reason } : {}) } : r
+        ),
+      }));
+      // Need to push the whole updated request since it's a JSONB dump
+      const updatedReq = get().validationRequests.find(r => r.id === id);
+      if (updatedReq) {
+        createClient().from("app_validation_requests").update({ data: updatedReq, updated_at: updatedTimestamp }).eq("id", id).then();
+      }
+    },
 
-      assignVlToRequest: (requestId, vlId, vmId) =>
-        set((s) => ({
-          validationRequests: s.validationRequests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  assigned_to: vlId,
-                  assigned_by: vmId,
-                  status: "assigned" as RequestStatus,
-                  updated_at: new Date().toISOString(),
-                }
-              : r
-          ),
-        })),
+    assignVlToRequest: (requestId, vlId, vmId) => {
+      const updatedTimestamp = new Date().toISOString();
+      set((s) => ({
+        validationRequests: s.validationRequests.map((r) =>
+          r.id === requestId
+            ? {
+                ...r,
+                assigned_to: vlId,
+                assigned_by: vmId,
+                status: "assigned" as RequestStatus,
+                updated_at: updatedTimestamp,
+              }
+            : r
+        ),
+      }));
+      const updatedReq = get().validationRequests.find(r => r.id === requestId);
+      if (updatedReq) {
+        createClient().from("app_validation_requests").update({ data: updatedReq, updated_at: updatedTimestamp }).eq("id", requestId).then();
+      }
+    },
 
-      getRequestsForDesigner: (designerId) =>
-        get().validationRequests.filter((r) => r.requested_by === designerId),
+    getRequestsForDesigner: (designerId) =>
+      get().validationRequests.filter((r) => r.requested_by === designerId),
 
-      getRequestsForVl: (vlId) =>
-        get().validationRequests.filter((r) => r.assigned_to === vlId),
+    getRequestsForVl: (vlId) =>
+      get().validationRequests.filter((r) => r.assigned_to === vlId),
 
-      getRequestsForCity: (cityId) =>
-        get().validationRequests.filter((r) => r.city_id === cityId),
-    }),
-    {
-      name: "ls-app-data",
-      version: 2,
-      migrate: (persisted: any, version: number) => {
-        if (version < 2) return undefined;
-        return persisted;
-      },
-    }
-  )
+    getRequestsForCity: (cityId) =>
+      get().validationRequests.filter((r) => r.city_id === cityId),
+  })
 );

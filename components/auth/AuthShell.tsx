@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthStore, ROLE_LABELS, ROLE_DASHBOARD } from "@/stores/useAuthStore";
+import { useGlobalSync } from "@/stores/useSyncEngine";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, User, ChevronDown, Home } from "lucide-react";
@@ -16,6 +17,9 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Initialize Global Sync Engine
+  const { isSyncing } = useGlobalSync();
 
   // Wait for hydration to avoid mismatch
   useEffect(() => {
@@ -71,6 +75,12 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
             <span className="hidden md:inline-block text-xs bg-white/20 px-2 py-0.5 rounded text-white/80">
               Site Validation Tool
             </span>
+            {isSyncing && (
+              <span className="ml-2 flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+            )}
           </Link>
 
           <div className="flex items-center gap-3">
