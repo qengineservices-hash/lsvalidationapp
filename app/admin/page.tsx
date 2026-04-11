@@ -16,7 +16,10 @@ import {
   Building2,
   LayoutGrid,
   Table,
-  FileDown
+  FileDown,
+  ChevronDown,
+  Menu,
+  Settings
 } from "lucide-react";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import TableView from "@/components/dashboard/TableView";
@@ -26,16 +29,17 @@ import { exportGlobalTracker } from "@/lib/exportTracker";
 // TAB DEFINITIONS
 // ===================================================
 const TABS = [
+  { key: "requests", label: "All Requests", icon: FileText },
   { key: "users", label: "Users", icon: Users },
   { key: "cities", label: "Cities", icon: Building2 },
   { key: "vm-vl", label: "VM ↔ VL Tagging", icon: Link2 },
   { key: "vl-city", label: "User ↔ City", icon: MapPin },
-  { key: "requests", label: "All Requests", icon: FileText },
 ];
 
 export default function AdminPanel() {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("requests");
+  const [showTools, setShowTools] = useState(false);
 
   if (!currentUser || currentUser.role !== "admin") {
     return (
@@ -45,40 +49,86 @@ export default function AdminPanel() {
     );
   }
 
+  const activeTabLabel = TABS.find(t => t.key === activeTab)?.label || "Admin Panel";
+
   return (
     <div className="container py-8 space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold text-livspace-dark">Admin Panel</h1>
-        <p className="text-sm text-livspace-gray-500">
-          Manage users, cities, assignments, and view all requests.
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-livspace-dark flex items-center gap-2">
+            Admin Panel
+            {activeTab !== "requests" && (
+              <>
+                <span className="text-livspace-gray-300 font-normal">/</span>
+                <span className="text-livspace-orange">{activeTabLabel}</span>
+              </>
+            )}
+          </h1>
+          <p className="text-sm text-livspace-gray-500">
+            {activeTab === "requests" 
+              ? "Global validation tracking and reporting." 
+              : `Manage ${activeTabLabel.toLowerCase()} and configurations.`}
+          </p>
+        </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-livspace-gray-200 overflow-x-auto">
-        {TABS.map((tab) => (
+        {/* Admin Tools Dropdown (Hamburger Style) */}
+        <div className="relative">
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => setShowTools(!showTools)}
             className={cn(
-              "flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
-              activeTab === tab.key
-                ? "border-livspace-orange text-livspace-orange"
-                : "border-transparent text-livspace-gray-400 hover:text-livspace-gray-600"
+              "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border",
+              showTools 
+                ? "bg-livspace-blue text-white border-livspace-blue shadow-lg" 
+                : "bg-white text-livspace-gray-700 border-livspace-gray-200 hover:border-livspace-blue hover:text-livspace-blue shadow-sm"
             )}
           >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
+            {activeTab === "requests" ? <LayoutGrid className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+            Admin Tools
+            <ChevronDown className={cn("w-4 h-4 transition-transform", showTools && "rotate-180")} />
           </button>
-        ))}
+
+          {showTools && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowTools(false)} 
+              />
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-livspace-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-200">
+                <div className="px-4 py-2 border-b border-livspace-gray-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-livspace-gray-400">Management Tools</p>
+                </div>
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setActiveTab(tab.key);
+                      setShowTools(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors",
+                      activeTab === tab.key
+                        ? "bg-livspace-gray-50 text-livspace-orange font-bold text-base"
+                        : "text-livspace-gray-600 hover:bg-livspace-gray-50 hover:text-livspace-blue"
+                    )}
+                  >
+                    <tab.icon className={cn("w-4 h-4", activeTab === tab.key ? "text-livspace-orange" : "text-livspace-gray-400")} />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tab Content */}
-      {activeTab === "users" && <UsersTab />}
-      {activeTab === "cities" && <CitiesTab />}
-      {activeTab === "vm-vl" && <VmVlTab />}
-      {activeTab === "vl-city" && <VlCityTab />}
-      {activeTab === "requests" && <AllRequestsTab />}
+      <div className="transition-all duration-300">
+        {activeTab === "users" && <UsersTab />}
+        {activeTab === "cities" && <CitiesTab />}
+        {activeTab === "vm-vl" && <VmVlTab />}
+        {activeTab === "vl-city" && <VlCityTab />}
+        {activeTab === "requests" && <AllRequestsTab />}
+      </div>
     </div>
   );
 }
