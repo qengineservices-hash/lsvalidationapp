@@ -29,7 +29,7 @@ import { exportGlobalTracker } from "@/lib/exportTracker";
 // TAB DEFINITIONS
 // ===================================================
 const TABS = [
-  { key: "requests", label: "All Requests", icon: FileText },
+  { key: "requests", label: "Tracker", icon: FileText },
   { key: "users", label: "Users", icon: Users },
   { key: "cities", label: "Cities", icon: Building2 },
   { key: "vm-vl", label: "VM ↔ VL Tagging", icon: Link2 },
@@ -639,9 +639,10 @@ function AllRequestsTab() {
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+              className={cn("p-1.5 px-3 rounded text-xs transition-colors flex items-center gap-2", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
             >
               <Table className="w-4 h-4" />
+              <span className="font-bold">Tracker</span>
             </button>
           </div>
           <button
@@ -657,7 +658,10 @@ function AllRequestsTab() {
         <StatusBuckets 
           requests={validationRequests} 
           showAssignee 
-          getActionHref={(r) => `/validation-lead/validate/${r.id}`}
+          getActionHref={(r) => {
+            const hasReport = r.status === "report_generated" || r.status === "validation_done";
+            return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
+          }}
         />
       ) : (
         <TableView requests={validationRequests} />

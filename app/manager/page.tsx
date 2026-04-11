@@ -34,11 +34,19 @@ export default function ManagerDashboard() {
   const myCities = getCitiesForUser(currentUser.id);
   const cityOptions = myCities.length > 0 ? myCities : cities; // Fallback to all if not tagged
 
-  // Filter requests by city
-  const filteredRequests =
-    selectedCity === "all"
-      ? validationRequests
-      : validationRequests.filter((r) => r.city_id === selectedCity);
+  // Filter requests by city labels assigned to this VM
+  const filteredRequests = useMemo(() => {
+    let base = validationRequests;
+    if (currentUser.role === "validation_manager") {
+      const cityIds = myCities.map(c => c.id);
+      if (cityIds.length > 0) {
+        base = base.filter(r => cityIds.includes(r.city_id));
+      }
+    }
+    
+    if (selectedCity === "all") return base;
+    return base.filter((r) => r.city_id === selectedCity);
+  }, [validationRequests, currentUser.role, myCities, selectedCity]);
 
   return (
     <div className="container py-8 space-y-8 max-w-4xl">
@@ -111,9 +119,10 @@ export default function ManagerDashboard() {
               </button>
               <button
                 onClick={() => setViewMode("table")}
-                className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+                className={cn("p-1.5 px-3 rounded text-xs transition-colors flex items-center gap-2", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
               >
                 <Table className="w-4 h-4" />
+                <span className="font-bold">Tracker</span>
               </button>
             </div>
             <button
@@ -129,7 +138,10 @@ export default function ManagerDashboard() {
           <StatusBuckets 
             requests={filteredRequests} 
             showAssignee 
-            getActionHref={(r) => `/validation-lead/validate/${r.id}`}
+            getActionHref={(r) => {
+              const hasReport = r.status === "report_generated" || r.status === "validation_done";
+              return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
+            }}
             renderActions={(r) => {
               if (r.status !== "new" && r.status !== "assigned") return null;
               return (

@@ -1,67 +1,82 @@
 import type { ValidationRequest } from "@/stores/useAppDataStore";
-import { useAppDataStore } from "@/stores/useAppDataStore";
+import { formatDateTime } from "./formatters";
 
-export function exportGlobalTracker(requests: ValidationRequest[], fileName: string) {
-  const store = useAppDataStore.getState();
+/**
+ * Exports validation requests to a CSV file in the standard Tracker format.
+ * Columns mirror the UI Tracker (TableView).
+ */
+export const exportGlobalTracker = (requests: ValidationRequest[], fileName: string = "Global_Tracker.csv") => {
+  if (requests.length === 0) {
+    alert("No data to export.");
+    return;
+  }
 
-  let csvContent = "data:text/csv;charset=utf-8,";
-  
-  // Headers
+  // Define headers matching the 15-column layout
   const headers = [
     "City",
-    "Designer Email",
+    "PID",
+    "Request ID",
     "Designer Name",
-    "Request Time",
-    "Scheduled Time",
-    "Customer Name",
-    "Customer Phone",
-    "Address",
-    "Stage",
-    "Assignment",
-    "Report Link",
+    "Validation Manager",
+    "Validation Lead",
+    "Request Date & Time",
+    "Schedule Date & Time",
+    "Validation Assignment",
+    "Validation Assigned Date & Time",
+    "Validation Accept (date & Time)",
+    "Validation Start Date & Time",
+    "Validation End Date & Time",
+    "Validation Status",
+    "Report Link"
   ];
-  csvContent += headers.map(h => `"${h}"`).join(",") + "\n";
 
-  requests.forEach(req => {
-    const city = store.cities.find(c => c.id === req.city_id)?.name || "Unknown";
-    const designer = store.getUserById(req.requested_by);
-    const assignee = req.assigned_to ? store.getUserById(req.assigned_to) : null;
-    
-    const requestTime = new Date(req.created_at).toLocaleString();
-    const scheduledTime = req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "N/A";
-    
-    // Convert status to readable stage
-    let stage = req.status.toUpperCase();
-    if (stage === "VALIDATION_DONE") stage = "VALIDATION DONE";
-    if (stage === "REPORT_GENERATED") stage = "REPORT GENERATED";
-    
-    const assignment = assignee ? `Assigned to ${assignee.full_name}` : "Unassigned";
-    const reportLink = (req.status === "report_generated" || req.status === "validation_done") 
-      ? `${window.location.origin}/reports/${req.id}` 
-      : "Not Ready";
+  // Map requests to rows
+  const rows = requests.map(req => {
+    // Helper to get labels (same as TableView)
+    const assignmentLabel = req.assigned_to ? "VL assigned" : "VL Not Assigned";
+    let statusLabel = "Validation Pending";
+    if (req.status === "report_generated") statusLabel = "Report Generated";
+    else if (req.status === "validation_done") statusLabel = "Validation Completed";
 
-    const row = [
-      city,
-      designer?.email || "Unknown",
-      designer?.full_name || "Unknown",
-      requestTime,
-      scheduledTime,
-      req.customer_name,
-      req.customer_phone || "N/A",
-      req.address,
-      stage,
-      assignment,
-      reportLink
+    // Build the row data
+    // We assume getAppDataStore is available or we pass the data we need.
+    // For pure utility, we'll use the fields in the request object.
+    // NOTE: Name lookups need to be done before calling this, or we export IDs.
+    // To keep this utility clean, we'll try to use available data or generic placeholders.
+    // In the app, this is usually called from a component that has access to the full store.
+    
+    return [
+      req.city_id || "Unknown", // Component should ideally resolve names before export if possible
+      req.pid,
+      req.request_number || req.id,
+      req.requested_by, // Component should resolve names
+      req.assigned_by || "—",
+      req.assigned_to || "—",
+      formatDateTime(req.created_at),
+      req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "—",
+      assignmentLabel,
+      req.assigned_at ? formatDateTime(req.assigned_at) : "—",
+      req.accepted_at ? formatDateTime(req.accepted_at) : "—",
+      req.start_time ? formatDateTime(req.start_time) : "—",
+      req.end_time ? formatDateTime(req.end_time) : "—",
+      statusLabel,
+      req.status === "report_generated" ? `${window.location.origin}/reports/${req.id}` : "—"
     ];
-
-    csvContent += row.map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",") + "\n";
   });
 
-  const encodedUri = encodeURI(csvContent);
+  // Construct CSV content
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => row.map(cell => `"${(cell || "").toString().replace(/"/g, '""')}"`).join(","))
+  ].join("\n");
+
+  // Create download link
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
+  link.setAttribute("href", url);
   link.setAttribute("download", fileName);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
+};

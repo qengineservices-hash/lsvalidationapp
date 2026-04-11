@@ -31,6 +31,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/validation-lead/validate/[requestId]/page.js"
     ],
+    "/reports/[requestId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/reports/[requestId]/page.js"
+    ],
     "/not-found": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
