@@ -84,13 +84,23 @@ export default function ValidationLeadDashboard() {
             ]}
             getActionHref={(req) => req.status === "assigned" ? undefined : `/validation-lead/validate/${req.id}`}
             renderActions={(req) => {
-              if (req.status === "assigned") {
+              if (req.status === "assigned" && !req.accepted_at) {
                 return (
                   <button 
-                    onClick={() => updateRequestStatus(req.id, "in_progress")}
+                    onClick={() => updateRequestStatus(req.id, "assigned", { accepted_at: new Date().toISOString() })}
                     className="w-full bg-livspace-blue text-white py-2.5 text-xs font-bold rounded-lg hover:bg-blue-800 transition-colors"
                   >
                     Accept Validation
+                  </button>
+                );
+              }
+              if (req.status === "assigned" || req.status === "in_progress" || req.status === "on_hold") {
+                return (
+                  <button 
+                    onClick={() => router.push(`/validation-lead/validate/${req.id}`)}
+                    className="w-full bg-livspace-orange text-white py-2.5 text-xs font-bold rounded-lg hover:bg-livspace-orange/90 transition-colors"
+                  >
+                    {req.status === "in_progress" ? "Continue Validation" : "Go to Validation"}
                   </button>
                 );
               }

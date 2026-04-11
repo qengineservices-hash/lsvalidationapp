@@ -49,6 +49,8 @@ export interface ValidationRequest {
   status: RequestStatus;
   scheduled_date?: string;
   scheduled_time?: string;
+  assigned_at?: string;
+  accepted_at?: string;
   start_time?: string;
   end_time?: string;
   on_hold_reason?: string;
@@ -255,6 +257,7 @@ export const useAppDataStore = create<AppDataState>()(
                 assigned_to: vlId,
                 assigned_by: vmId,
                 status: "assigned" as RequestStatus,
+                assigned_at: updatedTimestamp,
                 updated_at: updatedTimestamp,
               }
             : r

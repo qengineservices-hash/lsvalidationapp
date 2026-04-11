@@ -121,14 +121,9 @@ export default function ValidateRequestPage() {
         if (request.validation_data) {
           importValidationData(request.validation_data);
         }
-
-        // Mark as in_progress if just assigned
-        if (request.status === "assigned" || request.status === "new") {
-          updateRequestStatus(request.id, "in_progress");
-        }
       }
     }
-  }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, updateRequestStatus, cities]);
+  }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, cities]);
 
   if (!request) {
     return (

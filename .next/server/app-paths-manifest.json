@@ -1,6 +1,0 @@
-{
-  "/not-found": "app/not-found.js",
-  "/validation-lead/validate/[requestId]/page": "app/validation-lead/validate/[requestId]/page.js",
-  "/admin/page": "app/admin/page.js",
-  "/login/page": "app/login/page.js"
-}
