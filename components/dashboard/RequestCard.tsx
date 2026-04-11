@@ -34,6 +34,7 @@ export default function RequestCard({
   const { getUserById, cities } = useAppDataStore();
 
   const designer = getUserById(request.requested_by);
+  const city = cities.find((c) => c.id === request.city_id);
   const assignee = request.assigned_to ? getUserById(request.assigned_to) : null;
   const assigner = request.assigned_by ? getUserById(request.assigned_by) : null;
   const statusStyle = STATUS_STYLES[request.status];
@@ -162,9 +163,22 @@ export default function RequestCard({
             </a>
           )}
           {actionHref && (
-            <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-              {hasReport ? "View Report" : "Continue"}
-              <ExternalLink className="w-3 h-3" />
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                {hasReport ? "View Report" : "Continue"}
+                <ExternalLink className="w-3 h-3" />
+              </div>
+              {hasReport && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/validation-lead/validate/${request.id}`;
+                  }}
+                  className="px-2 py-1 bg-white border border-livspace-blue text-livspace-blue text-[9px] font-bold rounded-md hover:bg-blue-50 transition-colors"
+                >
+                  Edit
+                </button>
+              )}
             </div>
           )}
         </div>

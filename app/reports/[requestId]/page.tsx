@@ -4,7 +4,7 @@ import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Printer, FileDown, ExternalLink, ChevronDown, Mail, Clock, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatDateTime, calculateDuration, getEmailLink } from "@/lib/formatters";
 import { SOCIETY_QUESTIONS } from "@/stores/useValidationStore";
 
@@ -63,13 +63,11 @@ export default function ReportPage() {
     
     Object.values(data.rooms).forEach((room: any) => {
       const list: any[] = [];
-      // Room Level
       Object.entries(room.roomAnswers || {}).forEach(([q, a]: any) => {
         if (a.value && a.value !== "NA") {
           list.push({ question: q, answer: a.value, remarks: a.comment || "—" });
         }
       });
-      // Wall Level
       Object.entries(room.wallAnswers || {}).forEach(([q, a]: any) => {
         if (a.value && a.value !== "NA") {
           list.push({ question: q, answer: a.value, remarks: a.comment || "—" });
@@ -102,22 +100,52 @@ export default function ReportPage() {
   }, [data]);
 
   const handleDownloadCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Category,Details\n";
-    csvContent += `PID,${request.pid}\n`;
-    csvContent += `Request ID,${request.request_number || request.id}\n`;
-    csvContent += `Customer Name,${request.customer_name}\n`;
-    csvContent += `City,${city?.name}\n`;
-    csvContent += `Address,"${request.address}"\n`;
-    csvContent += `Raised Date,${formatDateTime(request.created_at)}\n`;
-    csvContent += `Last Edited,${formatDateTime(request.last_edited_at)}\n`;
-    csvContent += `Version,v${request.version || 1}\n`;
-    csvContent += `Time Taken,${calculateDuration(request.start_time, request.end_time)}\n`;
-    csvContent += `Validation Manager,${assigner?.full_name || "N/A"}\n`;
-    csvContent += `Validation Lead,${assignee?.full_name || "Unassigned"}\n`;
+    let csvContent = "\ufeff"; // BOM for better Excel encoding
+    csvContent += "Category,Details,Remarks\n";
     
-    // ... CSV logic continues (simplified for now as focus is UI)
-    const encodedUri = encodeURI(csvContent);
+    // Summary Section
+    csvContent += `SUMMARY,,\n`;
+    csvContent += `PID,${request.pid},\n`;
+    csvContent += `Request Number,${request.request_number || request.id},\n`;
+    csvContent += `Customer Name,${request.customer_name},\n`;
+    csvContent += `City,${city?.name || "N/A"},\n`;
+    csvContent += `Address,"${request.address || ""}",\n`;
+    csvContent += `Raised Date,${formatDateTime(request.created_at)},\n`;
+    csvContent += `Last Edited,${formatDateTime(request.last_edited_at)},\n`;
+    csvContent += `Version,v${request.version || 1},\n`;
+    csvContent += `Time Taken,${calculateDuration(request.start_time, request.end_time)},\n`;
+    csvContent += `Validation Manager,${assigner?.full_name || "N/A"},\n`;
+    csvContent += `Validation Lead,${assignee?.full_name || "Unassigned"},\n`;
+    csvContent += `\n`;
+
+    // Society Constraints
+    csvContent += `SOCIETY CONSTRAINTS,,\n`;
+    SOCIETY_QUESTIONS.forEach(q => {
+      csvContent += `${q.label},${data?.society?.[q.key] || "N/A"},\n`;
+    });
+    csvContent += `\n`;
+
+    // Validation Matrix
+    csvContent += `VALIDATION MATRIX,,\n`;
+    Object.entries(groupedMatrix).forEach(([roomName, items]) => {
+      csvContent += `ROOM: ${roomName},,\n`;
+      items.forEach(item => {
+        csvContent += `,"${item.question}","${item.answer}","${item.remarks}"\n`;
+      });
+    });
+    csvContent += `\n`;
+
+    // Measurements
+    csvContent += `TECHNICAL MEASUREMENTS,,\n`;
+    Object.entries(groupedMeasurements).forEach(([roomName, items]) => {
+      csvContent += `ROOM: ${roomName},,\n`;
+      items.forEach(item => {
+        csvContent += `,"${item.wall}","${item.dim}",\n`;
+      });
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const encodedUri = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `validation_report_${request.pid}_v${request.version || 1}.csv`);

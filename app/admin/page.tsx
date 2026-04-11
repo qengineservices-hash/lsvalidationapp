@@ -627,27 +627,37 @@ function AllRequestsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-livspace-dark">
-          All Requests ({validationRequests.length})
+          Tracker ({validationRequests.length})
         </h3>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-livspace-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setViewMode("card")}
-              className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "card" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={cn("p-1.5 px-3 rounded text-xs transition-colors flex items-center gap-2", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
-            >
-              <Table className="w-4 h-4" />
-              <span className="font-bold">Tracker</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setViewMode("card")}
+            className={cn(
+              "p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
+              viewMode === "card" 
+                ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
+                : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={() => setViewMode("table")}
+            className={cn(
+              "p-2 px-4 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
+              viewMode === "table" 
+                ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
+                : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
+            )}
+          >
+            <Table className="w-4 h-4" />
+            <span>Tracker</span>
+          </button>
+
           <button
             onClick={() => exportGlobalTracker(validationRequests, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
           >
             <FileDown className="w-3.5 h-3.5" /> Download CSV
           </button>

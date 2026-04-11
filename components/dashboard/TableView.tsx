@@ -42,14 +42,15 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
       const status = getStatusLabel(req);
 
       return (
-        (!filters.city || city === filters.city) &&
-        (!filters.pid || req.pid === filters.pid) &&
-        (!filters.request_id || (req.request_number || req.id) === filters.request_id) &&
-        (!filters.designer || designer === filters.designer) &&
-        (!filters.manager || manager === filters.manager) &&
-        (!filters.lead || lead === filters.lead) &&
-        (!filters.assignment || assignment === filters.assignment) &&
-        (!filters.status || status === filters.status)
+        (!filters.city || city.toLowerCase().includes(filters.city.toLowerCase())) &&
+        (!filters.pid || req.pid.toLowerCase().includes(filters.pid.toLowerCase())) &&
+        (!filters.customer || req.customer_name.toLowerCase().includes(filters.customer.toLowerCase())) &&
+        (!filters.request_id || (req.request_number || req.id).toLowerCase().includes(filters.request_id.toLowerCase())) &&
+        (!filters.designer || designer.toLowerCase().includes(filters.designer.toLowerCase())) &&
+        (!filters.manager || manager.toLowerCase().includes(filters.manager.toLowerCase())) &&
+        (!filters.lead || lead.toLowerCase().includes(filters.lead.toLowerCase())) &&
+        (!filters.assignment || assignment.toLowerCase().includes(filters.assignment.toLowerCase())) &&
+        (!filters.status || status.toLowerCase().includes(filters.status.toLowerCase()))
       );
     });
   }, [requests, filters, cities, getUserById]);
@@ -104,10 +105,7 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
           placeholder="Filter..."
           onChange={(e) => {
             const val = e.target.value;
-            // Only update if it matches an option or is empty
-            if (val === "" || options.includes(val)) {
-              setFilters(prev => ({ ...prev, [name]: val }));
-            }
+            setFilters(prev => ({ ...prev, [name]: val }));
           }}
           className="w-full bg-white/50 border border-livspace-gray-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-livspace-blue transition-all text-[9px] font-normal normal-case"
         />
@@ -175,6 +173,9 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[50px] text-center">
               Ver.
+            </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[150px]">
+              Last Edited At
             </th>
             <th className="px-3 py-4 text-center min-w-[100px]">
               Report Link
@@ -244,6 +245,9 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
                   <td className="px-3 py-3 border-r border-livspace-gray-100 text-center font-bold text-livspace-blue">
                     v{req.version || 1}
                   </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 text-[10px] text-livspace-gray-500">
+                    {req.last_edited_at ? formatDateTime(req.last_edited_at) : "—"}
+                  </td>
                   <td className="px-3 py-3 text-center">
                     {hasReport ? (
                       <div className="flex items-center justify-center gap-3">
@@ -254,7 +258,7 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
                           <FileText className="w-3.5 h-3.5" />
                           View
                         </Link>
-                        {req.status === "validation_done" && (
+                        {(req.status === "validation_done" || req.status === "report_generated") && (
                           <Link 
                             href={`/validation-lead/validate/${req.id}`} 
                             className="text-[10px] text-livspace-blue hover:underline font-bold"
