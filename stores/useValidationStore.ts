@@ -8,7 +8,7 @@ import { persist } from "zustand/middleware";
 export const SOCIETY_QUESTIONS = [
   // General
   { key: "propertyType", label: "What is the type of property?", category: "General", type: "mcq", options: ["Bare Shell", "Property Less than 15 yrs", "Property More than 15 yrs"] },
-  { key: "bhk", label: "What is the BHK?", category: "General", type: "text" },
+  { key: "bhk", label: "What is the BHK?", category: "General", type: "mcq", options: ["1 BHK", "2 BHK", "3 BHK", "4 BHK", "5 BHK", "Villa"] },
   // Soft Cost Identification
   { key: "serviceLiftUsage", label: "Service lift usage allowed?", category: "Soft Cost Identification", type: "mcq", options: ["Yes,Heavy material movement allowed", "Yes,Heavy material movement Not allowed", "No"] },
   { key: "loadingArea", label: "Debris/material loading area present?", category: "Soft Cost Identification", type: "mcq", options: ["Within 30 ft", "More than 30 ft", "Not present"] },
@@ -100,6 +100,15 @@ export const WALLS = ["NW", "EW", "SW", "WW"] as const;
 export const PHOTO_SURFACES = ["NW", "EW", "SW", "WW", "Ceiling", "Floor"] as const;
 export const DEFAULT_ROOMS = ["Living Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bathroom 1", "Bathroom 2", "Balcony"];
 
+export const BHK_ROOM_MAP: Record<string, string[]> = {
+  "1 BHK": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bathroom 1", "Balcony"],
+  "2 BHK": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bathroom 1", "Bathroom 2", "Balcony"],
+  "3 BHK": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bedroom 3", "Bathroom 1", "Bathroom 2", "Bathroom 3", "Balcony"],
+  "4 BHK": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bedroom 3", "Bedroom 4", "Bathroom 1", "Bathroom 2", "Bathroom 3", "Bathroom 4", "Balcony"],
+  "5 BHK": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bedroom 3", "Bedroom 4", "Bedroom 5", "Bathroom 1", "Bathroom 2", "Bathroom 3", "Bathroom 4", "Bathroom 5", "Balcony"],
+  "Villa": ["Living Room", "Dining Room", "Kitchen", "Bedroom 1", "Bedroom 2", "Bedroom 3", "Bedroom 4", "Bedroom 5", "Bathroom 1", "Bathroom 2", "Bathroom 3", "Bathroom 4", "Bathroom 5", "Balcony", "Terrace"],
+};
+
 // ===================================================
 // TYPES
 // ===================================================
@@ -150,6 +159,10 @@ interface ValidationState {
     rooms: Record<string, RoomData>;
   };
 
+  // Actions — Persistence
+  importValidationData: (data: any) => void;
+  resetValidation: () => void;
+
   // Actions — Navigation
   setActiveRoom: (room: string) => void;
   toggleAccordion: (key: string) => void;
@@ -160,6 +173,8 @@ interface ValidationState {
 
   // Actions — Rooms
   addRoom: (name: string) => void;
+  deleteRoom: (name: string) => void;
+  setRoomsFromBhk: (bhk: string) => void;
 
   // Actions — Wall Questions
   setWallAnswer: (room: string, question: string, value: "Yes" | "No" | "NA") => void;
@@ -182,6 +197,13 @@ interface ValidationState {
   // Reset
   reset: () => void;
 }
+
+const INITIAL_FORM_DATA = {
+  project: { pid: "", customerName: "", city: "", address: "", society: "", flat: "", floorNo: "" },
+  society: {},
+  roomOrder: [...DEFAULT_ROOMS],
+  rooms: createInitialRooms(),
+};
 
 function createEmptyRoom(name: string): RoomData {
   const photos: Record<string, RoomPhoto[]> = {};
@@ -210,12 +232,27 @@ export const useValidationStore = create<ValidationState>()(
       activeRoom: DEFAULT_ROOMS[0],
       accordionState: {},
 
-      formData: {
-        project: { pid: "", customerName: "", city: "", address: "", society: "", flat: "", floorNo: "" },
-        society: {},
-        roomOrder: [...DEFAULT_ROOMS],
-        rooms: createInitialRooms(),
+      formData: { ...INITIAL_FORM_DATA },
+
+      // Persistence
+      importValidationData: (data) => {
+        if (!data) return;
+        set((s) => ({
+          activeRoom: data.roomOrder?.[0] || s.activeRoom,
+          formData: {
+            project: { ...s.formData.project, ...(data.project || {}) },
+            society: data.society || {},
+            roomOrder: data.roomOrder || [...DEFAULT_ROOMS],
+            rooms: data.rooms || createInitialRooms(),
+          },
+        }));
       },
+
+      resetValidation: () => set({ 
+        activeRoom: DEFAULT_ROOMS[0],
+        accordionState: {},
+        formData: { ...INITIAL_FORM_DATA } 
+      }),
 
       // Navigation
       setActiveRoom: (room) => set({ activeRoom: room }),
@@ -236,13 +273,48 @@ export const useValidationStore = create<ValidationState>()(
 
       // Rooms
       addRoom: (name) =>
-        set((s) => ({
-          formData: {
-            ...s.formData,
-            roomOrder: [...s.formData.roomOrder, name],
-            rooms: { ...s.formData.rooms, [name]: createEmptyRoom(name) },
-          },
-        })),
+        set((s) => {
+          if (s.formData.roomOrder.includes(name)) return s;
+          return {
+            formData: {
+              ...s.formData,
+              roomOrder: [...s.formData.roomOrder, name],
+              rooms: { ...s.formData.rooms, [name]: createEmptyRoom(name) },
+            },
+          };
+        }),
+        
+      deleteRoom: (name) =>
+        set((s) => {
+          const newRoomOrder = s.formData.roomOrder.filter(r => r !== name);
+          const newRooms = { ...s.formData.rooms };
+          delete newRooms[name];
+          return {
+            activeRoom: s.activeRoom === name ? (newRoomOrder[0] || "") : s.activeRoom,
+            formData: {
+              ...s.formData,
+              roomOrder: newRoomOrder,
+              rooms: newRooms,
+            },
+          };
+        }),
+
+      setRoomsFromBhk: (bhk) =>
+        set((s) => {
+          const newRoomsList = BHK_ROOM_MAP[bhk] || DEFAULT_ROOMS;
+          const newRoomsObj: Record<string, RoomData> = {};
+          newRoomsList.forEach((name) => {
+            newRoomsObj[name] = s.formData.rooms[name] || createEmptyRoom(name);
+          });
+          return {
+            activeRoom: newRoomsList[0] || "",
+            formData: {
+              ...s.formData,
+              roomOrder: [...newRoomsList],
+              rooms: newRoomsObj,
+            },
+          };
+        }),
 
       // Wall Questions
       setWallAnswer: (room, question, value) =>

@@ -20,6 +20,7 @@ import {
   CheckCircle,
   PauseCircle,
   FileSpreadsheet,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -82,37 +83,52 @@ export default function ValidateRequestPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const { validationRequests, updateRequestStatus, getUserById, cities } = useAppDataStore();
   const {
+    formData,
     activeRoom,
     setActiveRoom,
-    formData,
-    updateProject,
     addRoom,
-    reset,
+    deleteRoom,
+    updateSociety,
+    updateProject,
+    importValidationData,
+    resetValidation,
   } = useValidationStore();
 
   const [newRoom, setNewRoom] = useState("");
 
   const request = validationRequests.find((r) => r.id === requestId);
 
-  // Auto-populate project details from the request
+  // Initialize or Restore data from the request
   useEffect(() => {
-    if (request && !formData.project.pid) {
-      const city = cities.find((c) => c.id === request.city_id);
-      updateProject({
-        pid: request.pid,
-        customerName: request.customer_name,
-        city: city?.name || "",
-        address: request.address,
-        society: request.society_name,
-        flat: request.flat_no,
-        floorNo: request.floor_no,
-      });
-      // Mark as in_progress
-      if (request.status === "assigned" || request.status === "new") {
-        updateRequestStatus(request.id, "in_progress");
+    if (request) {
+      // Check if we need to switch project context
+      if (formData.project.pid !== request.pid) {
+        resetValidation();
+        
+        // Populate basic info
+        const city = cities.find((c) => c.id === request.city_id);
+        updateProject({
+          pid: request.pid,
+          customerName: request.customer_name,
+          city: city?.name || "",
+          address: request.address,
+          society: request.society_name,
+          flat: request.flat_no,
+          floorNo: request.floor_no,
+        });
+
+        // Restore saved validation data if exists
+        if (request.validation_data) {
+          importValidationData(request.validation_data);
+        }
+
+        // Mark as in_progress if just assigned
+        if (request.status === "assigned" || request.status === "new") {
+          updateRequestStatus(request.id, "in_progress");
+        }
       }
     }
-  }, [request]);
+  }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, updateRequestStatus, cities]);
 
   if (!request) {
     return (
@@ -151,27 +167,15 @@ export default function ValidateRequestPage() {
   };
 
   const handleStartValidation = () => {
-    updateRequestStatus(request.id, "in_progress");
-    useAppDataStore.setState((s) => ({
-      validationRequests: s.validationRequests.map(r => r.id === request.id ? { ...r, start_time: new Date().toISOString() } : r)
-    }));
-    // Sync to backend manually
-    useAppDataStore.getState().updateRequestStatus(request.id, "in_progress");
+    updateRequestStatus(request.id, "in_progress", { start_time: new Date().toISOString() });
   };
 
   const handleComplete = () => {
     if (confirm("Mark this validation as completed?")) {
-      useAppDataStore.setState((s) => ({
-        validationRequests: s.validationRequests.map(r => r.id === request.id ? { ...r, end_time: new Date().toISOString(), validation_data: formData } : r)
-      }));
-      updateRequestStatus(request.id, "validation_done");
-      // Push updated JSONB manually because we appended a massive field
-      const updatedReq = useAppDataStore.getState().validationRequests.find(r => r.id === request.id);
-      if (updatedReq) {
-        // We know updateRequestStatus pushes, but it doesn't push the one with validation_data because state is asynchronous.
-        // wait, the easiest is to patch updateRequestStatus to also accept a payload, or just do a manual push.
-        // Actually, updateRequestStatus triggers the Supabase push. Since Zustand resolves synchronously in setState, it will push formData!
-      }
+      updateRequestStatus(request.id, "validation_done", { 
+        end_time: new Date().toISOString(), 
+        validation_data: formData 
+      });
       alert("Validation marked as completed! You can now generate the report.");
     }
   };
@@ -179,7 +183,7 @@ export default function ValidateRequestPage() {
   const handleOnHold = () => {
     const reason = prompt("Reason for putting validation on hold?");
     if (reason) {
-      updateRequestStatus(request.id, "on_hold", reason);
+      updateRequestStatus(request.id, "on_hold", { on_hold_reason: reason });
       alert("Validation marked as on hold!");
       router.push("/validation-lead");
     }
@@ -191,7 +195,8 @@ export default function ValidateRequestPage() {
 
   const allRoomsDone = formData.roomOrder.every(r => getRoomProgress(formData.rooms[r]).percent === 100);
   const isFullyComplete = allRoomsDone && globalProgress.percent === 100;
-  const isValidationDone = request.status === "validation_done" || request.status === "report_generated";
+  // Support legacy "completed" status for older requests
+  const isValidationDone = request.status === "validation_done" || request.status === "report_generated" || request.status === "completed" as any;
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -248,20 +253,38 @@ export default function ValidateRequestPage() {
               const rd = formData.rooms[r];
               const prog = rd ? getRoomProgress(rd) : { percent: 0 };
               return (
-                <button
-                  key={r}
-                  onClick={() => setActiveRoom(r)}
-                  className={cn(
-                    "px-3 py-2 rounded-xl border text-xs font-bold transition-all",
-                    activeRoom === r
-                      ? "bg-livspace-blue text-white border-livspace-blue"
-                      : "bg-white text-livspace-gray-600 border-livspace-gray-200 hover:border-livspace-blue"
-                  )}
-                >
-                  {r}
-                  {prog.percent > 0 && prog.percent < 100 && <span className="ml-1.5 text-[9px] opacity-70">{prog.percent}%</span>}
-                  {prog.percent === 100 && <span className="ml-1.5 text-[9px]">✓</span>}
-                </button>
+                <div key={r} className="relative group/tab">
+                  <button
+                    onClick={() => setActiveRoom(r)}
+                    className={cn(
+                      "px-3 py-2 pr-9 rounded-xl border text-xs font-bold transition-all relative",
+                      activeRoom === r
+                        ? "bg-livspace-blue text-white border-livspace-blue"
+                        : "bg-white text-livspace-gray-600 border-livspace-gray-200 hover:border-livspace-blue"
+                    )}
+                  >
+                    {r}
+                    {prog.percent > 0 && prog.percent < 100 && <span className="ml-1.5 text-[9px] opacity-70">{prog.percent}%</span>}
+                    {prog.percent === 100 && <span className="ml-1.5 text-[9px]">✓</span>}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Are you sure you want to delete the "${r}" room? All captured data for this room will be lost.`)) {
+                        deleteRoom(r);
+                      }
+                    }}
+                    className={cn(
+                      "absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all",
+                      activeRoom === r 
+                        ? "bg-white/20 text-white hover:bg-white/40" 
+                        : "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700"
+                    )}
+                    title="Delete room"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -324,25 +347,30 @@ export default function ValidateRequestPage() {
 
         {/* Complete & Export */}
         {!isValidationDone ? (
-          <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleComplete}
-              disabled={!isFullyComplete}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white rounded-xl font-bold text-sm transition-colors",
-                isFullyComplete ? "bg-green-600 hover:bg-green-700" : "bg-livspace-gray-300 cursor-not-allowed"
-              )}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Validation Complete
-            </button>
-            <button
-              onClick={handleOnHold}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-            >
-              <PauseCircle className="w-4 h-4" />
-              Mark On Hold
-            </button>
+          <div className="flex flex-col gap-4 bg-white border border-livspace-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div>
+                <h3 className="font-bold text-livspace-dark text-lg">Finish Validation</h3>
+                <p className="text-sm text-livspace-gray-500 mt-1">Ready to finalize this site validation?</p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <button
+                  onClick={handleComplete}
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3 text-white rounded-xl font-bold transition-all shadow-lg bg-green-600 hover:bg-green-700 hover:scale-105"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  Mark Validation Complete
+                </button>
+                <button
+                  onClick={handleOnHold}
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-red-600 border border-red-200 bg-red-50 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
+                >
+                  <PauseCircle className="w-4 h-4" />
+                  Mark On Hold
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">

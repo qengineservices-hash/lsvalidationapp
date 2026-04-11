@@ -22,6 +22,7 @@ dist/
 dist-ssr/
 build/
 out/
+.next/
 
 # ===========================
 # Log Files

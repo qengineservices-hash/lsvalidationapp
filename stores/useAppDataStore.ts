@@ -92,7 +92,7 @@ interface AppDataState {
 
   // Validation Requests
   addRequest: (request: ValidationRequest) => void;
-  updateRequestStatus: (id: string, status: RequestStatus, reason?: string) => void;
+  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>) => void;
   assignVlToRequest: (requestId: string, vlId: string, vmId: string) => void;
   getRequestsForDesigner: (designerId: string) => ValidationRequest[];
   getRequestsForVl: (vlId: string) => ValidationRequest[];
@@ -129,14 +129,23 @@ export const useAppDataStore = create<AppDataState>()(
     // ---- Users ----
     addUser: (user) => {
       set((s) => ({ users: [...s.users, user] }));
-      createClient().from("app_users").insert(user).then();
+      const { id, email, full_name, role, is_active } = user;
+      createClient().from("app_users").insert({ id, email, full_name, role, is_active }).then();
     },
 
     updateUser: (id, data) => {
       set((s) => ({
         users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)),
       }));
-      createClient().from("app_users").update(data).eq("id", id).then();
+      const payload: any = {};
+      if (data.email !== undefined) payload.email = data.email;
+      if (data.full_name !== undefined) payload.full_name = data.full_name;
+      if (data.role !== undefined) payload.role = data.role;
+      if (data.is_active !== undefined) payload.is_active = data.is_active;
+
+      if (Object.keys(payload).length > 0) {
+        createClient().from("app_users").update(payload).eq("id", id).then();
+      }
     },
 
     getUserById: (id) => get().users.find((u) => u.id === id),
@@ -215,14 +224,21 @@ export const useAppDataStore = create<AppDataState>()(
       createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
     },
 
-    updateRequestStatus: (id, status, reason) => {
+    updateRequestStatus: (id, status, extraData) => {
       const updatedTimestamp = new Date().toISOString();
       set((s) => ({
         validationRequests: s.validationRequests.map((r) =>
-          r.id === id ? { ...r, status, updated_at: updatedTimestamp, ...(reason !== undefined ? { on_hold_reason: reason } : {}) } : r
+          r.id === id 
+            ? { 
+                ...r, 
+                ...extraData, 
+                status, 
+                updated_at: updatedTimestamp 
+              } 
+            : r
         ),
       }));
-      // Need to push the whole updated request since it's a JSONB dump
+      // Push the whole updated request since it's a JSONB dump
       const updatedReq = get().validationRequests.find(r => r.id === id);
       if (updatedReq) {
         createClient().from("app_validation_requests").update({ data: updatedReq, updated_at: updatedTimestamp }).eq("id", id).then();

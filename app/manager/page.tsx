@@ -4,7 +4,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import Link from "next/link";
-import { PlusCircle, FileText, MapPin, FileDown } from "lucide-react";
+import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table } from "lucide-react";
+import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ export default function ManagerDashboard() {
   const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest } = useAppDataStore();
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   if (!currentUser) return null;
 
@@ -90,40 +92,60 @@ export default function ManagerDashboard() {
               ({filteredRequests.length})
             </span>
           </h2>
-          <button
-            onClick={() => exportGlobalTracker(filteredRequests, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
-          >
-            <FileDown className="w-3.5 h-3.5" /> Download Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-livspace-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode("card")}
+                className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "card" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+              >
+                <Table className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => exportGlobalTracker(filteredRequests, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+            >
+              <FileDown className="w-3.5 h-3.5" /> Download CSV
+            </button>
+          </div>
         </div>
 
-        <StatusBuckets 
-          requests={filteredRequests} 
-          showAssignee 
-          getActionHref={(r) => `/validation-lead/validate/${r.id}`}
-          renderActions={(r) => {
-            if (r.status !== "new" && r.status !== "assigned") return null;
-            return (
-              <div className="flex items-center gap-2">
-                <select
-                  className="w-full text-xs border border-livspace-gray-200 rounded-lg px-2 py-2 focus:ring-1 focus:ring-livspace-blue outline-none bg-white"
-                  value={r.assigned_to || ""}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      assignVlToRequest(r.id, e.target.value, currentUser.id);
-                    }
-                  }}
-                >
-                  <option value="">— Assign Validation Lead —</option>
-                  {availableVLs.map(vl => (
-                    <option key={vl.id} value={vl.id}>{vl.full_name} ({vl.email})</option>
-                  ))}
-                </select>
-              </div>
-            );
-          }}
-        />
+        {viewMode === "card" ? (
+          <StatusBuckets 
+            requests={filteredRequests} 
+            showAssignee 
+            getActionHref={(r) => `/validation-lead/validate/${r.id}`}
+            renderActions={(r) => {
+              if (r.status !== "new" && r.status !== "assigned") return null;
+              return (
+                <div className="flex items-center gap-2">
+                  <select
+                    className="w-full text-xs border border-livspace-gray-200 rounded-lg px-2 py-2 focus:ring-1 focus:ring-livspace-blue outline-none bg-white"
+                    value={r.assigned_to || ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        assignVlToRequest(r.id, e.target.value, currentUser.id);
+                      }
+                    }}
+                  >
+                    <option value="">— Assign Validation Lead —</option>
+                    {availableVLs.map(vl => (
+                      <option key={vl.id} value={vl.id}>{vl.full_name} ({vl.email})</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            }}
+          />
+        ) : (
+          <TableView requests={filteredRequests} />
+        )}
       </div>
     </div>
   );

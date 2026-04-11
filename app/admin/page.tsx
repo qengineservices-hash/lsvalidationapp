@@ -14,8 +14,12 @@ import {
   Trash2,
   UserPlus,
   Building2,
+  LayoutGrid,
+  Table,
+  FileDown
 } from "lucide-react";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
+import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
 
 // ===================================================
@@ -567,6 +571,7 @@ function VlCityTab() {
 // ===================================================
 function AllRequestsTab() {
   const { validationRequests } = useAppDataStore();
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   return (
     <div className="space-y-4">
@@ -574,18 +579,39 @@ function AllRequestsTab() {
         <h3 className="font-bold text-livspace-dark">
           All Requests ({validationRequests.length})
         </h3>
-        <button
-          onClick={() => exportGlobalTracker(validationRequests, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
-        >
-          <FileText className="w-3.5 h-3.5" /> Download Global Tracker
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-livspace-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode("card")}
+              className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "card" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
+            >
+              <Table className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            onClick={() => exportGlobalTracker(validationRequests, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Download CSV
+          </button>
+        </div>
       </div>
-      <StatusBuckets 
-        requests={validationRequests} 
-        showAssignee 
-        getActionHref={(r) => `/validation-lead/validate/${r.id}`}
-      />
+      
+      {viewMode === "card" ? (
+        <StatusBuckets 
+          requests={validationRequests} 
+          showAssignee 
+          getActionHref={(r) => `/validation-lead/validate/${r.id}`}
+        />
+      ) : (
+        <TableView requests={validationRequests} />
+      )}
     </div>
   );
 }
