@@ -1,20 +1,29 @@
 "use client";
 
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useAuthStore, ROLE_DASHBOARD } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import { ClipboardCheck, LayoutGrid, Table, FileDown } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export default function ValidationLeadDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
+  const router = useRouter();
   const { getRequestsForVl, updateRequestStatus } = useAppDataStore();
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
-  if (!currentUser) return null;
+  // Safety: If Admin/Manager accidentally lands here, bounce them to their correct home
+  useEffect(() => {
+    if (currentUser && currentUser.role !== "validation_lead") {
+      router.replace(ROLE_DASHBOARD[currentUser.role]);
+    }
+  }, [currentUser, router]);
+
+  if (!currentUser || currentUser.role !== "validation_lead") return null;
 
   const myAssignedRequests = getRequestsForVl(currentUser.id);
 

@@ -1,23 +1,32 @@
 "use client";
 
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useAuthStore, ROLE_DASHBOARD } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import Link from "next/link";
 import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
+  const router = useRouter();
   const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest } = useAppDataStore();
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
-  if (!currentUser) return null;
+  // Safety: If Lead/Designer accidentally lands here, bounce them
+  useEffect(() => {
+    if (currentUser && currentUser.role !== "validation_manager" && currentUser.role !== "admin") {
+      router.replace(ROLE_DASHBOARD[currentUser.role]);
+    }
+  }, [currentUser, router]);
+
+  if (!currentUser || (currentUser.role !== "validation_manager" && currentUser.role !== "admin")) return null;
 
   const availableVLs = getVlsForVm(currentUser.id);
 
