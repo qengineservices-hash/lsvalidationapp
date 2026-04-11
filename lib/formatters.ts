@@ -47,7 +47,11 @@ export function getReportUrl(requestId: string) {
 /**
  * Prepares the mailto link for sharing reports.
  */
-export function getEmailLink(request: any) {
+/**
+ * Prepares the Gmail compose link for sharing reports.
+ * Designer in TO, VM in CC.
+ */
+export function getEmailLink(request: any, designerEmail?: string, managerEmail?: string) {
   const subject = encodeURIComponent(`Services Validation report: ${request.pid}`);
   const body = encodeURIComponent(
 `Hi,
@@ -65,5 +69,9 @@ Kindly reach out in case of any queries.
 Happy Designing!`
   );
 
-  return `mailto:?subject=${subject}&body=${body}`;
+  // Use Gmail direct compose if possible (FS=1 means full screen, cm means compose)
+  const to = designerEmail || "";
+  const cc = managerEmail || "";
+  
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&cc=${cc}&su=${subject}&body=${body}`;
 }

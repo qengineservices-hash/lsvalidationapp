@@ -53,6 +53,8 @@ export interface ValidationRequest {
   accepted_at?: string;
   start_time?: string;
   end_time?: string;
+  last_edited_at?: string;
+  version?: number;
   on_hold_reason?: string;
   validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
@@ -226,19 +228,22 @@ export const useAppDataStore = create<AppDataState>()(
       createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
     },
 
-    updateRequestStatus: (id, status, extraData) => {
+    updateRequestStatus: (id, status, extraData, incrementVersion = false) => {
       const updatedTimestamp = new Date().toISOString();
       set((s) => ({
-        validationRequests: s.validationRequests.map((r) =>
-          r.id === id 
-            ? { 
-                ...r, 
-                ...extraData, 
-                status, 
-                updated_at: updatedTimestamp 
-              } 
-            : r
-        ),
+        validationRequests: s.validationRequests.map((r) => {
+          if (r.id !== id) return r;
+          const isReopening = (r.status === "validation_done" || r.status === "report_generated") && status === "in_progress";
+          const newVersion = (isReopening || incrementVersion) ? (r.version || 1) + 1 : (r.version || 1);
+          return { 
+            ...r, 
+            ...extraData, 
+            status, 
+            updated_at: updatedTimestamp,
+            last_edited_at: updatedTimestamp,
+            version: newVersion,
+          };
+        }),
       }));
       // Push the whole updated request since it's a JSONB dump
       const updatedReq = get().validationRequests.find(r => r.id === id);

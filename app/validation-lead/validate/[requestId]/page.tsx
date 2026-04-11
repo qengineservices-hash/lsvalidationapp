@@ -385,18 +385,31 @@ export default function ValidateRequestPage() {
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h3 className="font-bold text-emerald-800">Validation Completed!</h3>
-              <p className="text-sm text-emerald-600">All data has been captured successfully.</p>
+              <p className="text-sm text-emerald-600">All data has been captured successfully (Version v{request.version || 1}).</p>
             </div>
-            <button 
-              onClick={() => {
-                updateRequestStatus(request.id, "report_generated");
-                router.push(`/reports/${request.id}`);
-              }}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Generate Report
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button 
+                onClick={() => {
+                  if (confirm("Reopen this validation for editing? This will increment the report version.")) {
+                    updateRequestStatus(request.id, "in_progress");
+                  }
+                }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-white border border-emerald-200 text-emerald-700 rounded-xl font-bold text-sm hover:bg-emerald-100 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Edit Validation
+              </button>
+              <button 
+                onClick={() => {
+                  updateRequestStatus(request.id, "report_generated");
+                  router.push(`/reports/${request.id}`);
+                }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Generate Report
+              </button>
+            </div>
           </div>
         )}
           </>
