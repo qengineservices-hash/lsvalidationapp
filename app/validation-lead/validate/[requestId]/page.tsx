@@ -198,11 +198,25 @@ export default function ValidateRequestPage() {
   // Support legacy "completed" status for older requests
   const isValidationDone = request.status === "validation_done" || request.status === "report_generated" || request.status === "completed" as any;
 
+  const handleBack = () => {
+    if (!currentUser) {
+      router.push("/login");
+      return;
+    }
+    const roleMap: Record<string, string> = {
+      admin: "/admin",
+      validation_manager: "/manager",
+      designer: "/designer",
+      validation_lead: "/validation-lead",
+    };
+    router.push(roleMap[currentUser.role] || "/validation-lead");
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-20">
       {/* Header with request info */}
       <div className="bg-livspace-blue text-white p-4 sm:p-6">
-        <button onClick={() => router.push("/validation-lead")} className="flex items-center gap-1 text-white/70 text-xs mb-3 hover:text-white">
+        <button onClick={handleBack} className="flex items-center gap-1 text-white/70 text-xs mb-3 hover:text-white">
           <ArrowLeft className="w-3 h-3" /> Back to Dashboard
         </button>
         <h1 className="text-xl font-bold">{request.customer_name}</h1>
