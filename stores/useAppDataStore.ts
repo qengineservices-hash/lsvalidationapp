@@ -94,7 +94,7 @@ interface AppDataState {
   getRequestsForCity: (cityId: string) => ValidationRequest[];
 }
 
-const DEFAULT_CITIES: City[] = [
+export const DEFAULT_CITIES: City[] = [
   { id: "city_blr", name: "Bangalore", code: "BLR", is_active: true },
   { id: "city_mum", name: "Mumbai", code: "MUM", is_active: true },
   { id: "city_del", name: "Delhi", code: "DEL", is_active: true },
@@ -104,7 +104,7 @@ const DEFAULT_CITIES: City[] = [
 ];
 
 // Seed admin user
-const SEED_ADMIN: AppUser = {
+export const SEED_ADMIN: AppUser = {
   id: "user_admin_001",
   email: "qengine_services@livspace.com",
   full_name: "QEngine Admin",

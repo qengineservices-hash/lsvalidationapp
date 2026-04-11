@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAppDataStore } from "./useAppDataStore";
+import { useAppDataStore, SEED_ADMIN, DEFAULT_CITIES } from "./useAppDataStore";
 import { createClient } from "@/lib/supabase/client";
 
 export function useGlobalSync() {
@@ -29,8 +29,19 @@ export function useGlobalSync() {
 
         if (!isMounted) return;
 
-        if (users) useAppDataStore.setState({ users });
-        if (cities) useAppDataStore.setState({ cities });
+        if (users) {
+          const hasAdmin = users.some((u) => u.email === SEED_ADMIN.email);
+          if (!hasAdmin) {
+            users.unshift(SEED_ADMIN);
+          }
+          useAppDataStore.setState({ users });
+        }
+        if (cities) {
+          if (cities.length === 0) {
+            cities.push(...DEFAULT_CITIES);
+          }
+          useAppDataStore.setState({ cities });
+        }
         if (userCities) useAppDataStore.setState({ userCities });
         if (vmVlAssignments) useAppDataStore.setState({ vmVlAssignments });
         if (validationRequests) {
