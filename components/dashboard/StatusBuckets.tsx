@@ -11,16 +11,15 @@ interface StatusBucketsProps {
   showAssignee?: boolean;
   getActionHref?: (request: ValidationRequest) => string;
   renderActions?: (request: ValidationRequest) => React.ReactNode;
-  overrideBuckets?: { key: RequestStatus; label: string; emoji: string }[];
+  overrideBuckets?: { key: RequestStatus; label: string; emoji: string; statuses?: RequestStatus[] }[];
 }
 
-const BUCKETS: { key: RequestStatus; label: string; emoji: string }[] = [
+const BUCKETS: { key: RequestStatus; label: string; emoji: string; statuses?: RequestStatus[] }[] = [
   { key: "new", label: "New", emoji: "🆕" },
   { key: "assigned", label: "Assigned", emoji: "📋" },
   { key: "in_progress", label: "Ongoing", emoji: "🔄" },
   { key: "on_hold", label: "On Hold", emoji: "⏸️" },
-  { key: "validation_done", label: "Validation Done", emoji: "🏁" },
-  { key: "report_generated", label: "Report Generated", emoji: "✅" },
+  { key: "report_generated", label: "Completed", emoji: "✅", statuses: ["validation_done", "report_generated"] },
 ];
 
 export default function StatusBuckets({
@@ -32,15 +31,32 @@ export default function StatusBuckets({
 }: StatusBucketsProps) {
   const bucketsToUse = overrideBuckets || BUCKETS;
   const [activeBucket, setActiveBucket] = useState<RequestStatus>(bucketsToUse[0].key);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  const filteredRequests = requests.filter((r) => r.status === activeBucket);
+  // Auto-focus the first bucket that has data on initial load
+  if (!hasInitialized && requests.length > 0) {
+    const firstNonEmpty = bucketsToUse.find(b => requests.some(r => r.status === b.key));
+    if (firstNonEmpty && firstNonEmpty.key !== activeBucket) {
+      setActiveBucket(firstNonEmpty.key);
+    }
+    setHasInitialized(true);
+  }
+
+  const filteredRequests = requests.filter((r) => {
+    const bucket = bucketsToUse.find((b) => b.key === activeBucket);
+    if (bucket?.statuses) return bucket.statuses.includes(r.status);
+    return r.status === activeBucket;
+  });
 
   return (
     <div className="space-y-4">
       {/* Tab bar */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {bucketsToUse.map((bucket) => {
-          const count = requests.filter((r) => r.status === bucket.key).length;
+          const count = requests.filter((r) => {
+            if (bucket.statuses) return bucket.statuses.includes(r.status);
+            return r.status === bucket.key;
+          }).length;
           return (
             <button
               key={bucket.key}
