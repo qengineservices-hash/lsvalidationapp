@@ -7,7 +7,7 @@ import Link from "next/link";
 import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -34,7 +34,7 @@ export default function ManagerDashboard() {
   const myCities = getCitiesForUser(currentUser.id);
   const cityOptions = myCities.length > 0 ? myCities : cities; // Fallback to all if not tagged
 
-  // Filter requests by city labels assigned to this VM
+  // Filter requests by city labels assigned to this VM (used to enforce role-based visibility)
   const filteredRequests = useMemo(() => {
     let base = validationRequests;
     if (currentUser.role === "validation_manager") {
