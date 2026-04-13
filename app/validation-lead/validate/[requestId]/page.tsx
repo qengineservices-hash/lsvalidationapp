@@ -8,7 +8,7 @@ import RoomQuestionsSection from "@/components/validation/RoomQuestions";
 import MeasurementSection from "@/components/validation/MeasurementSection";
 import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -143,6 +143,26 @@ export default function ValidateRequestPage() {
     }
   }, [formData, request?.id, request?.status, updateRequestStatus]);
 
+  // Change Detection for Versioning 
+  const hasChanges = useMemo(() => {
+    if (!request || !request.validation_data) return true; // Initial version
+    
+    // Create stripped versions for comparison (ignore UI state like activeRoom)
+    const currentData = {
+      society: formData.society,
+      roomOrder: formData.roomOrder,
+      rooms: formData.rooms
+    };
+    
+    const previousData = {
+      society: request.validation_data.society,
+      roomOrder: request.validation_data.roomOrder,
+      rooms: request.validation_data.rooms
+    };
+
+    return JSON.stringify(currentData) !== JSON.stringify(previousData);
+  }, [formData, request?.validation_data]);
+
   if (!request) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -186,6 +206,10 @@ export default function ValidateRequestPage() {
   const handleComplete = () => {
     if (!isFullyComplete) {
       alert("Please complete all mandatory questions and measurements for all rooms before finalizing.");
+      return;
+    }
+    if (!hasChanges) {
+      alert("No changes detected since the last version. You cannot finalize without modifications.");
       return;
     }
     if (confirm("Finalise and generate report? This will create Version v" + (request.version || 1) + ".")) {
@@ -388,10 +412,10 @@ export default function ValidateRequestPage() {
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleComplete}
-                  disabled={!isFullyComplete}
+                  disabled={!isFullyComplete || !hasChanges}
                   className={cn(
                     "inline-flex items-center justify-center gap-2 px-8 py-4 text-white rounded-xl font-black transition-all shadow-lg",
-                    isFullyComplete 
+                    isFullyComplete && hasChanges
                       ? "bg-livspace-orange hover:bg-orange-600 hover:scale-105" 
                       : "bg-livspace-gray-300 cursor-not-allowed opacity-70"
                   )}
