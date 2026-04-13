@@ -8,7 +8,7 @@ import RoomQuestionsSection from "@/components/validation/RoomQuestions";
 import MeasurementSection from "@/components/validation/MeasurementSection";
 import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -146,21 +146,6 @@ export default function ValidateRequestPage() {
     }
   }, [formData, request?.id, request?.status, updateRequestStatus]);
 
-  if (!request) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <div className="w-8 h-8 border-4 border-livspace-orange border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-bold text-livspace-gray-400 font-mono uppercase tracking-widest">Hydrating Project Data...</p>
-      </div>
-    );
-  }
-
-  if (!currentUser) return null;
-
-  const requester = getUserById(request.requested_by);
-  const city = cities.find((c) => c.id === request.city_id);
-
-  // Change Detection for Versioning 
   const hasChanges = useMemo(() => {
     if (!request || !request.validation_data) return true; // Initial version
     
@@ -181,6 +166,17 @@ export default function ValidateRequestPage() {
   }, [formData, request?.validation_data]);
 
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
+
+  if (!request) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-8 h-8 border-4 border-livspace-orange border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-livspace-gray-400 font-mono uppercase tracking-widest">Hydrating Project Data...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) return null;
 
   const handleAddRoom = () => {
     const name = newRoom.trim();

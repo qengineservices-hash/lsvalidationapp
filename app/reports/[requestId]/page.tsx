@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppDataStore } from "@/stores/useAppDataStore";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Printer, FileDown, ExternalLink, ChevronDown, Mail, Clock, Info, Stars, Ruler, Camera, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect } from "react";
@@ -60,11 +60,11 @@ function SubAccordion({ title, children, badge, icon: Icon }: { title: string, c
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
-  const requestId = params.requestId as string;
+  const searchParams = useSearchParams();
+  const requestId = params?.requestId as string;
+  const versionParam = searchParams.get("v");
   const { validationRequests, getUserById, cities, updateRequestStatus } = useAppDataStore();
   const request = validationRequests.find((r) => r.id === requestId);
-  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const versionParam = searchParams?.get("v");
   
   const [manualInsight, setManualInsight] = useState("");
 
