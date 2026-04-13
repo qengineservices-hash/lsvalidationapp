@@ -158,7 +158,8 @@ export default function ValidateRequestPage() {
 
     // Compare against the MOST RECENT finalized snapshot
     const lastHistory = request.version_history[request.version_history.length - 1];
-    const previousSnapshot = lastHistory.data;
+    const previousSnapshot = lastHistory?.data;
+    if (!previousSnapshot) return true;
     
     // Create stripped versions for comparison (ignore UI state like activeRoom)
     const currentComp = {
@@ -168,9 +169,9 @@ export default function ValidateRequestPage() {
     };
     
     const previousComp = {
-      society: previousSnapshot.society,
-      roomOrder: previousSnapshot.roomOrder,
-      rooms: previousSnapshot.rooms
+      society: previousSnapshot?.society || {},
+      roomOrder: previousSnapshot?.roomOrder || [],
+      rooms: previousSnapshot?.rooms || {}
     };
 
     return JSON.stringify(currentComp) !== JSON.stringify(previousComp);
