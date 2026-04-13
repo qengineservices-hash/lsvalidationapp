@@ -7,14 +7,14 @@ import Link from "next/link";
 import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
-  const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest } = useAppDataStore();
+  const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest, getUserById } = useAppDataStore();
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
@@ -34,7 +34,7 @@ export default function ManagerDashboard() {
   const myCities = getCitiesForUser(currentUser.id);
   const cityOptions = myCities.length > 0 ? myCities : cities; // Fallback to all if not tagged
 
-  // Filter requests by city labels assigned to this VM
+  // Filter requests by city labels assigned to this VM (used to enforce role-based visibility)
   const filteredRequests = useMemo(() => {
     let base = validationRequests;
     if (currentUser.role === "validation_manager") {
@@ -104,30 +104,57 @@ export default function ManagerDashboard() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
             <FileText className="w-5 h-5 text-livspace-gray-500" />
-            Validation Requests
+            Tracker
             <span className="text-sm font-normal text-livspace-gray-400">
               ({filteredRequests.length})
             </span>
           </h2>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-livspace-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode("card")}
-                className={cn("p-1.5 rounded text-xs transition-colors", viewMode === "card" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("table")}
-                className={cn("p-1.5 px-3 rounded text-xs transition-colors flex items-center gap-2", viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400")}
-              >
-                <Table className="w-4 h-4" />
-                <span className="font-bold">Tracker</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => exportGlobalTracker(filteredRequests, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors"
+              onClick={() => setViewMode("card")}
+              className={cn(
+                "p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
+                viewMode === "card" 
+                  ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
+                  : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            
+            <button
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "p-2 px-4 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
+                viewMode === "table" 
+                  ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
+                  : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
+              )}
+            >
+              <Table className="w-4 h-4" />
+              <span>Tracker</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const mappedData = filteredRequests.map(req => ({
+                  city: cities.find(c => c.id === req.city_id)?.name || "—",
+                  pid: req.pid,
+                  request_id: req.request_number || req.id,
+                  customer: req.customer_name,
+                  designer: getUserById(req.requested_by)?.full_name || "—",
+                  manager: req.assigned_by ? getUserById(req.assigned_by)?.full_name || "—" : "—",
+                  lead: req.assigned_to ? getUserById(req.assigned_to)?.full_name || "—" : "—",
+                  created_at: new Date(req.created_at).toLocaleDateString(),
+                  scheduled: req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "—",
+                  status: req.status === "report_generated" ? "Report Generated" : req.status === "validation_done" ? "Validation Completed" : "In Progress",
+                  version: req.version || 1,
+                  last_edited: req.last_edited_at ? new Date(req.last_edited_at).toLocaleDateString() : "—",
+                  report_link: req.status === "report_generated" ? `${window.location.origin}/reports/${req.id}` : "—"
+                }));
+                exportGlobalTracker(mappedData, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
             >
               <FileDown className="w-3.5 h-3.5" /> Download CSV
             </button>

@@ -8,7 +8,7 @@ import RoomQuestionsSection from "@/components/validation/RoomQuestions";
 import MeasurementSection from "@/components/validation/MeasurementSection";
 import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -21,7 +21,10 @@ import {
   PauseCircle,
   FileSpreadsheet,
   X,
+  ExternalLink,
+  ClipboardList,
 } from "lucide-react";
+import ComparisonModal from "@/components/reports/ComparisonModal";
 import { cn } from "@/lib/utils";
 
 // Accordion
@@ -62,8 +65,16 @@ function Accordion({
 function getRoomProgress(roomData: any) {
   const wallAnswered = WALL_QUESTIONS.filter((q) => roomData.wallAnswers[q]?.value).length;
   const roomAnswered = ROOM_QUESTIONS.filter((q) => roomData.roomAnswers[q]?.value).length;
-  const total = WALL_QUESTIONS.length + ROOM_QUESTIONS.length;
-  const answered = wallAnswered + roomAnswered;
+  
+  // Measurements: consider done if there's any data in measurement fields
+  const totalMeasurements = MEASUREMENT_FIELDS.length;
+  const answeredMeasurements = MEASUREMENT_FIELDS.filter((f) => 
+    roomData.measurements[f.key] !== undefined && roomData.measurements[f.key] !== ""
+  ).length;
+
+  const total = WALL_QUESTIONS.length + ROOM_QUESTIONS.length + totalMeasurements;
+  const answered = wallAnswered + roomAnswered + answeredMeasurements;
+  
   return { answered, total, percent: Math.round((answered / total) * 100) };
 }
 
@@ -125,19 +136,47 @@ export default function ValidateRequestPage() {
     }
   }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, cities]);
 
+
+
+  // SYNC Bridge: Ensure any local form changes are reflected in the global request objects 
+  // so that the report page (reading from AppDataStore) stays in sync during edits.
+  useEffect(() => {
+    if (request && request.status === "in_progress") {
+      updateRequestStatus(request.id, "in_progress", { validation_data: formData });
+    }
+  }, [formData, request?.id, request?.status, updateRequestStatus]);
+
+  const hasChanges = useMemo(() => {
+    if (!request || !request.validation_data) return true; // Initial version
+    
+    // Create stripped versions for comparison (ignore UI state like activeRoom)
+    const currentData = {
+      society: formData.society,
+      roomOrder: formData.roomOrder,
+      rooms: formData.rooms
+    };
+    
+    const previousData = {
+      society: request.validation_data.society,
+      roomOrder: request.validation_data.roomOrder,
+      rooms: request.validation_data.rooms
+    };
+
+    return JSON.stringify(currentData) !== JSON.stringify(previousData);
+  }, [formData, request?.validation_data]);
+
+  const [compareVersion, setCompareVersion] = useState<number | null>(null);
+
   if (!request) {
     return (
-      <div className="container py-20 text-center">
-        <p className="text-lg text-red-600 font-bold">Request not found.</p>
-        <button onClick={() => router.back()} className="mt-4 text-livspace-orange font-bold">← Go Back</button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-8 h-8 border-4 border-livspace-orange border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-livspace-gray-400 font-mono uppercase tracking-widest">Hydrating Project Data...</p>
       </div>
     );
   }
 
   if (!currentUser) return null;
-
-  const requester = getUserById(request.requested_by);
-  const city = cities.find((c) => c.id === request.city_id);
 
   const handleAddRoom = () => {
     const name = newRoom.trim();
@@ -166,12 +205,20 @@ export default function ValidateRequestPage() {
   };
 
   const handleComplete = () => {
-    if (confirm("Mark this validation as completed?")) {
-      updateRequestStatus(request.id, "validation_done", { 
+    if (!isFullyComplete) {
+      alert("Please complete all mandatory questions and measurements for all rooms before finalizing.");
+      return;
+    }
+    if (!hasChanges) {
+      alert("No changes detected since the last version. You cannot finalize without modifications.");
+      return;
+    }
+    if (confirm("Finalise and generate report? This will create Version v" + (request.version || 1) + ".")) {
+      updateRequestStatus(request.id, "report_generated", { 
         end_time: new Date().toISOString(), 
         validation_data: formData 
-      });
-      alert("Validation marked as completed! You can now generate the report.");
+      }, true); // finalize = true
+      router.push(`/reports/${request.id}`);
     }
   };
 
@@ -245,10 +292,10 @@ export default function ValidateRequestPage() {
           </div>
         ) : (
           <>
-            {/* Society Constraints */}
+            {/* Work Environment (formerly Society Constraints) */}
             <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm">
               <Accordion 
-                title="Global Building & Society Constraints" 
+                title="Work Environment" 
                 badge={`${globalProgress.answered}/${globalProgress.total} answered (${globalProgress.percent}%)`}
               >
                 <SocietyConstraintsSection />
@@ -366,11 +413,26 @@ export default function ValidateRequestPage() {
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleComplete}
-                  className="inline-flex items-center justify-center gap-2 px-8 py-3 text-white rounded-xl font-bold transition-all shadow-lg bg-green-600 hover:bg-green-700 hover:scale-105"
+                  disabled={!isFullyComplete || !hasChanges}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 px-8 py-4 text-white rounded-xl font-black transition-all shadow-lg",
+                    isFullyComplete && hasChanges
+                      ? "bg-livspace-orange hover:bg-orange-600 hover:scale-105" 
+                      : "bg-livspace-gray-300 cursor-not-allowed opacity-70"
+                  )}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  Mark Validation Complete
+                  Finalise & Generate report
                 </button>
+                {request.version > 1 && (
+                  <button
+                    onClick={() => setCompareVersion(request.version - 1)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-4 text-livspace-blue border border-livspace-blue/20 bg-livspace-blue/5 rounded-xl font-bold text-sm hover:bg-livspace-blue/10 transition-colors"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    Audit Changes
+                  </button>
+                )}
                 <button
                   onClick={handleOnHold}
                   className="flex items-center justify-center gap-2 px-4 py-3 text-red-600 border border-red-200 bg-red-50 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
@@ -379,27 +441,75 @@ export default function ValidateRequestPage() {
                   Mark On Hold
                 </button>
               </div>
+
+              {/* Version History (Internal) */}
+              {request.version_history && request.version_history.length > 0 && (
+                <div className="w-full mt-6 pt-6 border-t border-livspace-gray-100 text-left">
+                  <h4 className="text-[10px] font-black text-livspace-gray-400 uppercase tracking-widest mb-3">Previous Finalizations (Internal History)</h4>
+                  <div className="space-y-2">
+                    {request.version_history.map((h, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] bg-livspace-gray-50 p-2 rounded-lg border border-livspace-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-livspace-dark italic">Version v{h.version}</span>
+                          <Link 
+                            href={`/reports/${request.id}?v=${h.version}`} 
+                            target="_blank"
+                            className="text-livspace-blue hover:underline font-bold flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" /> View Archive
+                          </Link>
+                        </div>
+                        <span className="text-livspace-gray-500 font-medium">Finalized on {new Date(h.finalized_at).toLocaleDateString()} at {new Date(h.finalized_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h3 className="font-bold text-emerald-800">Validation Completed!</h3>
-              <p className="text-sm text-emerald-600">All data has been captured successfully.</p>
+              <p className="text-sm text-emerald-600">All data has been captured successfully (Version v{request.version || 1}).</p>
             </div>
-            <button 
-              onClick={() => {
-                updateRequestStatus(request.id, "report_generated");
-                router.push(`/reports/${request.id}`);
-              }}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Generate Report
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button 
+                onClick={() => {
+                  if (confirm("Reopen this validation for editing? This will increment the report version.")) {
+                    updateRequestStatus(request.id, "in_progress");
+                  }
+                }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-white border border-emerald-200 text-emerald-700 rounded-xl font-bold text-sm hover:bg-emerald-100 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Edit Validation
+              </button>
+              <button 
+                onClick={() => {
+                  updateRequestStatus(request.id, "report_generated");
+                  router.push(`/reports/${request.id}`);
+                }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Generate Report
+              </button>
+            </div>
           </div>
         )}
           </>
+        )}
+
+        {/* Comparison Modal */}
+        {compareVersion && (
+          <ComparisonModal 
+            v1={request.version_history.find(h => h.version === compareVersion)?.data}
+            v2={formData}
+            v1Label={`v${compareVersion}`}
+            v2Label="Unsaved Changes"
+            onClose={() => setCompareVersion(null)}
+          />
         )}
       </div>
     </div>

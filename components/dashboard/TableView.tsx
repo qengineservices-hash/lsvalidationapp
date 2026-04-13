@@ -42,14 +42,15 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
       const status = getStatusLabel(req);
 
       return (
-        (!filters.city || city === filters.city) &&
-        (!filters.pid || req.pid === filters.pid) &&
-        (!filters.request_id || (req.request_number || req.id) === filters.request_id) &&
-        (!filters.designer || designer === filters.designer) &&
-        (!filters.manager || manager === filters.manager) &&
-        (!filters.lead || lead === filters.lead) &&
-        (!filters.assignment || assignment === filters.assignment) &&
-        (!filters.status || status === filters.status)
+        (!filters.city || city.toLowerCase().includes(filters.city.toLowerCase())) &&
+        (!filters.pid || req.pid.toLowerCase().includes(filters.pid.toLowerCase())) &&
+        (!filters.customer || req.customer_name.toLowerCase().includes(filters.customer.toLowerCase())) &&
+        (!filters.request_id || (req.request_number || req.id).toLowerCase().includes(filters.request_id.toLowerCase())) &&
+        (!filters.designer || designer.toLowerCase().includes(filters.designer.toLowerCase())) &&
+        (!filters.manager || manager.toLowerCase().includes(filters.manager.toLowerCase())) &&
+        (!filters.lead || lead.toLowerCase().includes(filters.lead.toLowerCase())) &&
+        (!filters.assignment || assignment.toLowerCase().includes(filters.assignment.toLowerCase())) &&
+        (!filters.status || status.toLowerCase().includes(filters.status.toLowerCase()))
       );
     });
   }, [requests, filters, cities, getUserById]);
@@ -94,19 +95,26 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
     );
   }
 
-  const FilterSelect = ({ name, options }: { name: string, options: string[] }) => (
-    <div className="mt-1 relative group/select">
-      <select
-        value={filters[name]}
-        onChange={(e) => setFilters(prev => ({ ...prev, [name]: e.target.value }))}
-        className="w-full appearance-none bg-white/50 border border-livspace-gray-200 rounded px-2 py-1 pr-6 outline-none focus:ring-1 focus:ring-livspace-blue transition-all text-[9px] font-normal normal-case cursor-pointer"
-      >
-        <option value="">All</option>
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-      <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 text-livspace-gray-400 pointer-events-none" />
-    </div>
-  );
+  const SearchableFilter = ({ name, options }: { name: string, options: string[] }) => {
+    const dataListId = `list-${name}`;
+    return (
+      <div className="mt-1 relative">
+        <input
+          list={dataListId}
+          value={filters[name]}
+          placeholder="Filter..."
+          onChange={(e) => {
+            const val = e.target.value;
+            setFilters(prev => ({ ...prev, [name]: val }));
+          }}
+          className="w-full bg-white/50 border border-livspace-gray-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-livspace-blue transition-all text-[9px] font-normal normal-case"
+        />
+        <datalist id={dataListId}>
+          {options.map(opt => <option key={opt} value={opt} />)}
+        </datalist>
+      </div>
+    );
+  };
 
   return (
     <div className="overflow-x-auto bg-white border border-livspace-gray-200 rounded-xl shadow-2xl">
@@ -115,27 +123,27 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
           <tr>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[100px]">
               City
-              <FilterSelect name="city" options={uniqueValues.city} />
+              <SearchableFilter name="city" options={uniqueValues.city} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[80px]">
               PID
-              <FilterSelect name="pid" options={uniqueValues.pid} />
+              <SearchableFilter name="pid" options={uniqueValues.pid} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[100px]">
               Request ID
-              <FilterSelect name="request_id" options={uniqueValues.request_id} />
+              <SearchableFilter name="request_id" options={uniqueValues.request_id} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[120px]">
               Designer Name
-              <FilterSelect name="designer" options={uniqueValues.designer} />
+              <SearchableFilter name="designer" options={uniqueValues.designer} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[120px]">
               Validation Manager
-              <FilterSelect name="manager" options={uniqueValues.manager} />
+              <SearchableFilter name="manager" options={uniqueValues.manager} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[120px]">
               Validation Lead
-              <FilterSelect name="lead" options={uniqueValues.lead} />
+              <SearchableFilter name="lead" options={uniqueValues.lead} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[140px]">
               Request Date & Time
@@ -145,7 +153,7 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[130px]">
               Validation Assignment
-              <FilterSelect name="assignment" options={uniqueValues.assignment} />
+              <SearchableFilter name="assignment" options={uniqueValues.assignment} />
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[150px]">
               Validation Assigned Date
@@ -161,7 +169,13 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
             </th>
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[130px]">
               Validation Status
-              <FilterSelect name="status" options={uniqueValues.status} />
+              <SearchableFilter name="status" options={uniqueValues.status} />
+            </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[50px] text-center">
+              Ver.
+            </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[150px]">
+              Last Edited At
             </th>
             <th className="px-3 py-4 text-center min-w-[100px]">
               Report Link
@@ -220,7 +234,7 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
                   </td>
                   <td className="px-3 py-3 border-r border-livspace-gray-100 uppercase font-black text-[9px] tracking-widest">
                     <span className={cn(
-                      "px-1.5 py-0.5 rounded",
+                      "px-1.5 py-0.5 rounded flex items-center gap-1",
                       statusLabel === "Report Generated" ? "bg-green-600 text-white" :
                       statusLabel === "Validation Completed" ? "bg-green-100 text-green-700" :
                       "bg-amber-100 text-amber-700"
@@ -228,15 +242,31 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
                       {statusLabel}
                     </span>
                   </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 text-center font-bold text-livspace-blue">
+                    v{req.version || 1}
+                  </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 text-[10px] text-livspace-gray-500">
+                    {req.last_edited_at ? formatDateTime(req.last_edited_at) : "—"}
+                  </td>
                   <td className="px-3 py-3 text-center">
                     {hasReport ? (
-                      <Link 
-                        href={`/reports/${req.id}`} 
-                        className="inline-flex items-center gap-1 text-livspace-orange font-bold hover:underline"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        View
-                      </Link>
+                      <div className="flex items-center justify-center gap-3">
+                        <Link 
+                          href={`/reports/${req.id}`} 
+                          className="inline-flex items-center gap-1 text-livspace-orange font-bold hover:underline"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          View
+                        </Link>
+                        {(req.status === "validation_done" || req.status === "report_generated") && (
+                          <Link 
+                            href={`/validation-lead/validate/${req.id}`} 
+                            className="text-[10px] text-livspace-blue hover:underline font-bold"
+                          >
+                            Edit
+                          </Link>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-livspace-gray-300 italic">Pending</span>
                     )}

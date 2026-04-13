@@ -53,6 +53,9 @@ export interface ValidationRequest {
   accepted_at?: string;
   start_time?: string;
   end_time?: string;
+  last_edited_at?: string;
+  version?: number;
+  version_history?: { version: number; data: any; finalized_at: string; finalized_by: string }[];
   on_hold_reason?: string;
   validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
@@ -94,7 +97,7 @@ interface AppDataState {
 
   // Validation Requests
   addRequest: (request: ValidationRequest) => void;
-  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>) => void;
+  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>, finalize?: boolean) => void;
   assignVlToRequest: (requestId: string, vlId: string, vmId: string) => void;
   getRequestsForDesigner: (designerId: string) => ValidationRequest[];
   getRequestsForVl: (vlId: string) => ValidationRequest[];
@@ -226,19 +229,39 @@ export const useAppDataStore = create<AppDataState>()(
       createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
     },
 
-    updateRequestStatus: (id, status, extraData) => {
+    updateRequestStatus: (id, status, extraData, finalize = false) => {
       const updatedTimestamp = new Date().toISOString();
       set((s) => ({
-        validationRequests: s.validationRequests.map((r) =>
-          r.id === id 
-            ? { 
-                ...r, 
-                ...extraData, 
-                status, 
-                updated_at: updatedTimestamp 
-              } 
-            : r
-        ),
+        validationRequests: s.validationRequests.map((r) => {
+          if (r.id !== id) return r;
+          
+          const isReopening = (r.status === "validation_done" || r.status === "report_generated") && status === "in_progress";
+          let newVersion = r.version || 1;
+          const newHistory = [...(r.version_history || [])];
+
+          if (isReopening) {
+            newVersion = (r.version || 1) + 1;
+          }
+
+          if (finalize) {
+            newHistory.push({
+              version: newVersion,
+              data: extraData?.validation_data || r.validation_data, // Capture the full state
+              finalized_at: updatedTimestamp,
+              finalized_by: r.assigned_to || "Unknown VL",
+            });
+          }
+
+          return { 
+            ...r, 
+            ...extraData, 
+            status, 
+            updated_at: updatedTimestamp,
+            last_edited_at: updatedTimestamp,
+            version: newVersion,
+            version_history: newHistory,
+          };
+        }),
       }));
       // Push the whole updated request since it's a JSONB dump
       const updatedReq = get().validationRequests.find(r => r.id === id);

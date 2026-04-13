@@ -33,6 +33,7 @@ export default function RequestCard({
   const router = useRouter();
   const { getUserById, cities } = useAppDataStore();
 
+  const designer = getUserById(request.requested_by);
   const city = cities.find((c) => c.id === request.city_id);
   const assignee = request.assigned_to ? getUserById(request.assigned_to) : null;
   const assigner = request.assigned_by ? getUserById(request.assigned_by) : null;
@@ -40,15 +41,21 @@ export default function RequestCard({
   const duration = calculateDuration(request.start_time, request.end_time);
   const hasReport = request.status === "report_generated" || request.status === "validation_done";
 
+  const handleCardClick = () => {
+    if (actionHref) {
+      router.push(actionHref);
+    }
+  };
+
   return (
     <div 
-      className="p-4 bg-white border border-livspace-gray-200 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all space-y-3 relative group"
+      onClick={handleCardClick}
+      className={cn(
+        "p-4 bg-white border border-livspace-gray-200 rounded-xl transition-all space-y-3 relative group",
+        actionHref ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5" : ""
+      )}
     >
-      <div 
-        className={cn("absolute inset-0 rounded-xl", actionHref ? "cursor-pointer" : "")} 
-        onClick={() => actionHref && router.push(actionHref)}
-      />
-      <div className="relative pointer-events-none">
+      <div className="relative">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h4 className="font-bold text-livspace-dark text-sm">
@@ -74,6 +81,7 @@ export default function RequestCard({
               )}
             >
               {statusStyle.label}
+              {request.version && request.version > 1 && ` v${request.version}`}
             </span>
             {request.priority !== "P2" && (
               <span
@@ -137,25 +145,40 @@ export default function RequestCard({
       </div>
       
       <div className="pt-3 border-t border-livspace-gray-100 flex items-center justify-between gap-2 relative z-10">
-        <div className="flex-1">
+        <div className="flex-1" onClick={(e) => e.stopPropagation()}>
           {renderActions && renderActions(request)}
         </div>
         
         <div className="flex items-center gap-2">
           {hasReport && (
             <a 
-              href={getEmailLink(request)}
+              href={getEmailLink(request, designer?.email, assigner?.email)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="p-2 text-livspace-gray-400 hover:text-livspace-blue hover:bg-livspace-blue/5 rounded-lg transition-all"
               onClick={(e) => e.stopPropagation()}
-              title="Send via Email"
+              title="Send via Gmail to Designer, CC Manager"
             >
               <Mail className="w-4 h-4" />
             </a>
           )}
           {actionHref && (
-            <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {hasReport ? "View Report" : "Continue"}
-              <ExternalLink className="w-3 h-3" />
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                {hasReport ? "View Report" : "Continue"}
+                <ExternalLink className="w-3 h-3" />
+              </div>
+              {hasReport && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/validation-lead/validate/${request.id}`;
+                  }}
+                  className="px-2 py-1 bg-white border border-livspace-blue text-livspace-blue text-[9px] font-bold rounded-md hover:bg-blue-50 transition-colors"
+                >
+                  Edit
+                </button>
+              )}
             </div>
           )}
         </div>
