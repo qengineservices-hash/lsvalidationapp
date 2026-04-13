@@ -10,6 +10,7 @@ import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
@@ -21,7 +22,10 @@ import {
   PauseCircle,
   FileSpreadsheet,
   X,
+  ExternalLink,
+  ClipboardList,
 } from "lucide-react";
+import ComparisonModal from "@/components/reports/ComparisonModal";
 import { cn } from "@/lib/utils";
 
 // Accordion
@@ -163,6 +167,7 @@ export default function ValidateRequestPage() {
     return JSON.stringify(currentData) !== JSON.stringify(previousData);
   }, [formData, request?.validation_data]);
 
+  const [compareVersion, setCompareVersion] = useState<number | null>(null);
   if (!request) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -423,6 +428,15 @@ export default function ValidateRequestPage() {
                   <CheckCircle className="w-5 h-5" />
                   Finalise & Generate report
                 </button>
+                {request.version > 1 && (
+                  <button
+                    onClick={() => setCompareVersion(request.version - 1)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-4 text-livspace-blue border border-livspace-blue/20 bg-livspace-blue/5 rounded-xl font-bold text-sm hover:bg-livspace-blue/10 transition-colors"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    Audit Changes
+                  </button>
+                )}
                 <button
                   onClick={handleOnHold}
                   className="flex items-center justify-center gap-2 px-4 py-3 text-red-600 border border-red-200 bg-red-50 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
@@ -439,7 +453,16 @@ export default function ValidateRequestPage() {
                   <div className="space-y-2">
                     {request.version_history.map((h, i) => (
                       <div key={i} className="flex items-center justify-between text-[11px] bg-livspace-gray-50 p-2 rounded-lg border border-livspace-gray-100">
-                        <span className="font-bold text-livspace-dark italic">Version v{h.version}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-livspace-dark italic">Version v{h.version}</span>
+                          <Link 
+                            href={`/reports/${request.id}?v=${h.version}`} 
+                            target="_blank"
+                            className="text-livspace-blue hover:underline font-bold flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" /> View Archive
+                          </Link>
+                        </div>
                         <span className="text-livspace-gray-500 font-medium">Finalized on {new Date(h.finalized_at).toLocaleDateString()} at {new Date(h.finalized_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     ))}
@@ -480,6 +503,17 @@ export default function ValidateRequestPage() {
           </div>
         )}
           </>
+        )}
+
+        {/* Comparison Modal */}
+        {compareVersion && (
+          <ComparisonModal 
+            v1={request.version_history.find(h => h.version === compareVersion)?.data}
+            v2={formData}
+            v1Label={`v${compareVersion}`}
+            v2Label="Unsaved Changes"
+            onClose={() => setCompareVersion(null)}
+          />
         )}
       </div>
     </div>
