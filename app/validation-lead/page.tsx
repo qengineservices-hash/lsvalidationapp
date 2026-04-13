@@ -67,7 +67,7 @@ export default function ValidationLeadDashboard() {
             <button
               onClick={() => {
                 const mappedData = myAssignedRequests.map(req => ({
-                  city: useAppDataStore.getState().cities.find(c => c.id === req.city_id)?.name || "—",
+                  city: (useAppDataStore.getState().cities || []).find(c => c.id === req.city_id)?.name || "—",
                   pid: req.pid,
                   request_id: req.request_number || req.id,
                   customer: req.customer_name,

@@ -2,7 +2,7 @@
 
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useValidationStore, WALL_QUESTIONS, ROOM_QUESTIONS, MEASUREMENT_FIELDS, PHOTO_SURFACES } from "@/stores/useValidationStore";
+import { useValidationStore, WALL_QUESTIONS, ROOM_QUESTIONS, MEASUREMENT_FIELDS, PHOTO_SURFACES, SOCIETY_QUESTIONS } from "@/stores/useValidationStore";
 import WallQuestionsSection from "@/components/validation/WallQuestions";
 import RoomQuestionsSection from "@/components/validation/RoomQuestions";
 import MeasurementSection from "@/components/validation/MeasurementSection";
@@ -80,8 +80,7 @@ function getRoomProgress(roomData: any) {
 }
 
 function getGlobalProgress(formData: any) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { SOCIETY_QUESTIONS } = require("@/stores/useValidationStore");
+  if (!formData?.society) return { answered: 0, total: SOCIETY_QUESTIONS.length, percent: 0 };
   const answered = Object.values(formData.society).filter((v) => !!v).length;
   const total = SOCIETY_QUESTIONS.length;
   return { answered, total, percent: total === 0 ? 100 : Math.round((answered / total) * 100) };
@@ -175,7 +174,7 @@ export default function ValidateRequestPage() {
     };
 
     return JSON.stringify(currentComp) !== JSON.stringify(previousComp);
-  }, [formData, request?.version_history]);
+  }, [formData?.society, formData?.roomOrder, formData?.rooms, request?.version_history]);
 
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
 

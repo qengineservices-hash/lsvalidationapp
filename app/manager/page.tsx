@@ -138,7 +138,7 @@ export default function ManagerDashboard() {
             <button
               onClick={() => {
                 const mappedData = filteredRequests.map(req => ({
-                  city: cities.find(c => c.id === req.city_id)?.name || "—",
+                  city: (cities || []).find(c => c.id === req.city_id)?.name || "—",
                   pid: req.pid,
                   request_id: req.request_number || req.id,
                   customer: req.customer_name,
