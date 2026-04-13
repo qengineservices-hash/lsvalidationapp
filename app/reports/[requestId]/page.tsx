@@ -76,8 +76,11 @@ function ReportPageContent() {
   const data = useMemo(() => {
     if (!request) return null;
     if (versionParam) {
-      const hist = request.version_history?.find(h => h.version === parseInt(versionParam));
+      const v = parseInt(versionParam);
+      const hist = request.version_history?.find(h => h.version === v);
       if (hist) return hist.data;
+      // If versionParam matches current version and it's not in history yet
+      if (v === request.version) return request.validation_data;
     }
     return request.validation_data;
   }, [request, versionParam]);

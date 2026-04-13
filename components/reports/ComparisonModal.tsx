@@ -44,13 +44,13 @@ export default function ComparisonModal({ v1, v2, v1Label, v2Label, onClose }: C
     // 3. Detailed Room Content (for overlapping rooms)
     const commonRooms = rooms1.filter((r: string) => rooms2.includes(r));
     commonRooms.forEach((rName: string) => {
-      const r1 = v1.rooms[rName];
-      const r2 = v2.rooms[rName];
+      const r1 = v1.rooms?.[rName];
+      const r2 = v2.rooms?.[rName];
 
       // Wall Questions
       WALL_QUESTIONS.forEach(q => {
-        const a1 = r1.wallAnswers[q]?.value || "—";
-        const a2 = r2.wallAnswers[q]?.value || "—";
+        const a1 = r1?.wallAnswers?.[q]?.value || "—";
+        const a2 = r2?.wallAnswers?.[q]?.value || "—";
         if (a1 !== a2) {
           diffs.push({ section: rName, field: `Wall: ${q}`, val1: a1, val2: a2, type: "change" });
         }
@@ -58,8 +58,8 @@ export default function ComparisonModal({ v1, v2, v1Label, v2Label, onClose }: C
 
       // Room Questions
       ROOM_QUESTIONS.forEach(q => {
-        const a1 = r1.roomAnswers[q]?.value || "—";
-        const a2 = r2.roomAnswers[q]?.value || "—";
+        const a1 = r1?.roomAnswers?.[q]?.value || "—";
+        const a2 = r2?.roomAnswers?.[q]?.value || "—";
         if (a1 !== a2) {
           diffs.push({ section: rName, field: `Question: ${q}`, val1: a1, val2: a2, type: "change" });
         }
@@ -67,8 +67,8 @@ export default function ComparisonModal({ v1, v2, v1Label, v2Label, onClose }: C
 
       // Measurements
       MEASUREMENT_FIELDS.forEach(f => {
-        const m1 = r1.measurements[f.key] || "—";
-        const m2 = r2.measurements[f.key] || "—";
+        const m1 = r1?.measurements?.[f.key] || "—";
+        const m2 = r2?.measurements?.[f.key] || "—";
         if (m1.toString() !== m2.toString()) {
           diffs.push({ section: rName, field: f.label, val1: m1.toString(), val2: m2.toString(), type: "change" });
         }
