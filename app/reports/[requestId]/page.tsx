@@ -4,7 +4,7 @@ import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Printer, FileDown, ExternalLink, ChevronDown, Mail, Clock, Info, Stars, Ruler, Camera, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { formatDateTime, calculateDuration, getEmailLink } from "@/lib/formatters";
 import { SOCIETY_QUESTIONS, WALL_QUESTIONS, ROOM_QUESTIONS, MEASUREMENT_FIELDS, PHOTO_SURFACES } from "@/stores/useValidationStore";
 
@@ -57,7 +57,7 @@ function SubAccordion({ title, children, badge, icon: Icon }: { title: string, c
   );
 }
 
-export default function ReportPage() {
+function ReportPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -362,5 +362,18 @@ export default function ReportPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <div className="w-8 h-8 border-4 border-livspace-orange border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-livspace-gray-400 font-mono uppercase tracking-widest">Loading Report...</p>
+      </div>
+    }>
+      <ReportPageContent />
+    </Suspense>
   );
 }
