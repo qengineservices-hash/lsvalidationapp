@@ -151,23 +151,30 @@ export default function ValidateRequestPage() {
   }, [formData, request?.id, request?.status, updateRequestStatus]);
 
   const hasChanges = useMemo(() => {
-    if (!request || !request.validation_data) return true; // Initial version
+    if (!request) return false;
+    
+    // If no history exists (v1 drafting), we ALWAYS allow finalization if 100% complete
+    if (!request.version_history || request.version_history.length === 0) return true;
+
+    // Compare against the MOST RECENT finalized snapshot
+    const lastHistory = request.version_history[request.version_history.length - 1];
+    const previousSnapshot = lastHistory.data;
     
     // Create stripped versions for comparison (ignore UI state like activeRoom)
-    const currentData = {
+    const currentComp = {
       society: formData.society,
       roomOrder: formData.roomOrder,
       rooms: formData.rooms
     };
     
-    const previousData = {
-      society: request.validation_data.society,
-      roomOrder: request.validation_data.roomOrder,
-      rooms: request.validation_data.rooms
+    const previousComp = {
+      society: previousSnapshot.society,
+      roomOrder: previousSnapshot.roomOrder,
+      rooms: previousSnapshot.rooms
     };
 
-    return JSON.stringify(currentData) !== JSON.stringify(previousData);
-  }, [formData, request?.validation_data]);
+    return JSON.stringify(currentComp) !== JSON.stringify(previousComp);
+  }, [formData, request?.version_history]);
 
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
 
