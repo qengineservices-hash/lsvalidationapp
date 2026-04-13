@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 export default function ManagerDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
-  const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest } = useAppDataStore();
+  const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest, getUserById } = useAppDataStore();
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
