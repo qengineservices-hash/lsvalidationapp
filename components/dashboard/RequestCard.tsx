@@ -164,10 +164,12 @@ export default function RequestCard({
           )}
           {actionHref && (
             <div className="flex items-center gap-3">
-              <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                {hasReport ? "View Report" : "Continue"}
-                <ExternalLink className="w-3 h-3" />
-              </div>
+              {!renderActions && (
+                <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  {hasReport ? "View Report" : "Continue"}
+                  <ExternalLink className="w-3 h-3" />
+                </div>
+              )}
               {hasReport && (
                 <button 
                   onClick={(e) => {

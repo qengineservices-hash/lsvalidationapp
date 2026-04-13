@@ -235,18 +235,14 @@ export const useAppDataStore = create<AppDataState>()(
         validationRequests: s.validationRequests.map((r) => {
           if (r.id !== id) return r;
           
-          const isReopening = (r.status === "validation_done" || r.status === "report_generated") && status === "in_progress";
-          let newVersion = r.version || 1;
+          let newVersion = r.version || 0;
           const newHistory = [...(r.version_history || [])];
 
-          if (isReopening) {
-            newVersion = (r.version || 1) + 1;
-          }
-
           if (finalize) {
+            newVersion = (r.version || 0) + 1;
             newHistory.push({
               version: newVersion,
-              data: extraData?.validation_data || r.validation_data, // Capture the full state
+              data: extraData?.validation_data || r.validation_data,
               finalized_at: updatedTimestamp,
               finalized_by: r.assigned_to || "Unknown VL",
             });

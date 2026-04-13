@@ -10,6 +10,7 @@ import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
@@ -108,6 +109,9 @@ export default function ValidateRequestPage() {
   const [newRoom, setNewRoom] = useState("");
 
   const request = validationRequests.find((r) => r.id === requestId);
+
+  const city = useMemo(() => request ? cities.find((c) => c.id === request.city_id) : null, [request, cities]);
+  const requester = useMemo(() => request ? getUserById(request.requested_by) : null, [request, getUserById]);
 
   // Initialize or Restore data from the request
   useEffect(() => {
@@ -389,17 +393,9 @@ export default function ValidateRequestPage() {
             <Accordion title="Site Photographs" badge={`${PHOTO_SURFACES.reduce((sum, s) => sum + (currentRoomData.photos[s]?.length || 0), 0)} photos`}>
               <PhotoSection room={activeRoom} />
             </Accordion>
-
-            <button
-              onClick={goToNextRoom}
-              className="w-full btn-primary h-14 text-lg font-bold flex items-center justify-center gap-2 group shadow-lg shadow-livspace-orange/20"
-            >
-              {formData.roomOrder.indexOf(activeRoom) === formData.roomOrder.length - 1
-                ? "All Rooms Done ✔"
-                : `Next: ${formData.roomOrder[formData.roomOrder.indexOf(activeRoom) + 1]} →`}
-            </button>
-          </div>
-        )}
+             {/* Removed All Rooms Done button as per user request */}
+           </div>
+         )}
 
         {/* Complete & Export */}
         {!isValidationDone ? (
@@ -418,7 +414,7 @@ export default function ValidateRequestPage() {
                     "inline-flex items-center justify-center gap-2 px-8 py-4 text-white rounded-xl font-black transition-all shadow-lg",
                     isFullyComplete && hasChanges
                       ? "bg-livspace-orange hover:bg-orange-600 hover:scale-105" 
-                      : "bg-livspace-gray-300 cursor-not-allowed opacity-70"
+                      : "bg-livspace-gray-400 cursor-not-allowed"
                   )}
                 >
                   <CheckCircle className="w-5 h-5" />

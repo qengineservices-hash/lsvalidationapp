@@ -239,6 +239,7 @@ export default function NewValidationRequestPage() {
               </label>
               <input
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={form.scheduled_date}
                 onChange={(e) => update("scheduled_date", e.target.value)}
                 className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
