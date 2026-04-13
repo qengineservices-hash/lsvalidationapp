@@ -286,6 +286,10 @@ export const useValidationStore = create<ValidationState>()(
         
       deleteRoom: (name) =>
         set((s) => {
+          if (s.formData.roomOrder.length <= 1) {
+            alert("At least one room must be mandatorily available.");
+            return s;
+          }
           const newRoomOrder = s.formData.roomOrder.filter(r => r !== name);
           const newRooms = { ...s.formData.rooms };
           delete newRooms[name];

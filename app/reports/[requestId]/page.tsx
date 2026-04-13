@@ -63,6 +63,9 @@ export default function ReportPage() {
   const requestId = params.requestId as string;
   const { validationRequests, getUserById, cities, updateRequestStatus } = useAppDataStore();
   const request = validationRequests.find((r) => r.id === requestId);
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const versionParam = searchParams?.get("v");
+  
   const [manualInsight, setManualInsight] = useState("");
 
   const designer = useMemo(() => request ? getUserById(request.requested_by) : null, [request, getUserById]);
@@ -70,7 +73,14 @@ export default function ReportPage() {
   const assigner = useMemo(() => request?.assigned_by ? getUserById(request.assigned_by) : null, [request, getUserById]);
   const city = useMemo(() => request ? cities.find((c) => c.id === request.city_id) : null, [request, cities]);
 
-  const data = request?.validation_data;
+  const data = useMemo(() => {
+    if (!request) return null;
+    if (versionParam) {
+      const hist = request.version_history?.find(h => h.version === parseInt(versionParam));
+      if (hist) return hist.data;
+    }
+    return request.validation_data;
+  }, [request, versionParam]);
 
   // AI-Powered Insights Generator (Rule-based)
   useEffect(() => {
