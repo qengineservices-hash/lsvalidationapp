@@ -10,6 +10,7 @@ import PhotoSection from "@/components/validation/PhotoSection";
 import SocietyConstraintsSection from "@/components/validation/SocietyConstraints";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
@@ -177,6 +178,9 @@ export default function ValidateRequestPage() {
   }
 
   if (!currentUser) return null;
+
+  const requester = getUserById(request.requested_by);
+  const city = cities.find((c) => c.id === request.city_id);
 
   const handleAddRoom = () => {
     const name = newRoom.trim();
