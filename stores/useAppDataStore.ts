@@ -97,7 +97,7 @@ interface AppDataState {
 
   // Validation Requests
   addRequest: (request: ValidationRequest) => void;
-  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>) => void;
+  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>, finalize?: boolean) => void;
   assignVlToRequest: (requestId: string, vlId: string, vmId: string) => void;
   getRequestsForDesigner: (designerId: string) => ValidationRequest[];
   getRequestsForVl: (vlId: string) => ValidationRequest[];
