@@ -656,7 +656,24 @@ function AllRequestsTab() {
           </button>
 
           <button
-            onClick={() => exportGlobalTracker(validationRequests, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`)}
+            onClick={() => {
+              const mappedData = validationRequests.map(req => ({
+                city: useAppDataStore.getState().cities.find(c => c.id === req.city_id)?.name || "—",
+                pid: req.pid,
+                request_id: req.request_number || req.id,
+                customer: req.customer_name,
+                designer: useAppDataStore.getState().getUserById(req.requested_by)?.full_name || "—",
+                manager: req.assigned_by ? useAppDataStore.getState().getUserById(req.assigned_by)?.full_name || "—" : "—",
+                lead: req.assigned_to ? useAppDataStore.getState().getUserById(req.assigned_to)?.full_name || "—" : "—",
+                created_at: new Date(req.created_at).toLocaleDateString(),
+                scheduled: req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "—",
+                status: req.status === "report_generated" ? "Report Generated" : req.status === "validation_done" ? "Validation Completed" : "In Progress",
+                version: req.version || 1,
+                last_edited: req.last_edited_at ? new Date(req.last_edited_at).toLocaleDateString() : "—",
+                report_link: req.status === "report_generated" ? `${window.location.origin}/reports/${req.id}` : "—"
+              }));
+              exportGlobalTracker(mappedData, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
           >
             <FileDown className="w-3.5 h-3.5" /> Download CSV

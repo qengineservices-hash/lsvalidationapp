@@ -55,7 +55,7 @@ export interface ValidationRequest {
   end_time?: string;
   last_edited_at?: string;
   version?: number;
-  version_history?: { version: number; finalized_at: string; finalized_by: string }[];
+  version_history?: { version: number; data: any; finalized_at: string; finalized_by: string }[];
   on_hold_reason?: string;
   validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
@@ -246,6 +246,7 @@ export const useAppDataStore = create<AppDataState>()(
           if (finalize) {
             newHistory.push({
               version: newVersion,
+              data: extraData?.validation_data || r.validation_data, // Capture the full state
               finalized_at: updatedTimestamp,
               finalized_by: r.assigned_to || "Unknown VL",
             });
