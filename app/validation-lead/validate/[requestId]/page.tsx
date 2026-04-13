@@ -62,8 +62,16 @@ function Accordion({
 function getRoomProgress(roomData: any) {
   const wallAnswered = WALL_QUESTIONS.filter((q) => roomData.wallAnswers[q]?.value).length;
   const roomAnswered = ROOM_QUESTIONS.filter((q) => roomData.roomAnswers[q]?.value).length;
-  const total = WALL_QUESTIONS.length + ROOM_QUESTIONS.length;
-  const answered = wallAnswered + roomAnswered;
+  
+  // Measurements: consider done if there's any data in measurement fields
+  const totalMeasurements = MEASUREMENT_FIELDS.length;
+  const answeredMeasurements = MEASUREMENT_FIELDS.filter((f) => 
+    roomData.measurements[f.key] !== undefined && roomData.measurements[f.key] !== ""
+  ).length;
+
+  const total = WALL_QUESTIONS.length + ROOM_QUESTIONS.length + totalMeasurements;
+  const answered = wallAnswered + roomAnswered + answeredMeasurements;
+  
   return { answered, total, percent: Math.round((answered / total) * 100) };
 }
 
@@ -125,11 +133,21 @@ export default function ValidateRequestPage() {
     }
   }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, cities]);
 
+
+
+  // SYNC Bridge: Ensure any local form changes are reflected in the global request objects 
+  // so that the report page (reading from AppDataStore) stays in sync during edits.
+  useEffect(() => {
+    if (request && request.status === "in_progress") {
+      updateRequestStatus(request.id, "in_progress", { validation_data: formData });
+    }
+  }, [formData, request?.id, request?.status, updateRequestStatus]);
+
   if (!request) {
     return (
-      <div className="container py-20 text-center">
-        <p className="text-lg text-red-600 font-bold">Request not found.</p>
-        <button onClick={() => router.back()} className="mt-4 text-livspace-orange font-bold">← Go Back</button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-8 h-8 border-4 border-livspace-orange border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-livspace-gray-400 font-mono uppercase tracking-widest">Hydrating Project Data...</p>
       </div>
     );
   }
@@ -166,12 +184,16 @@ export default function ValidateRequestPage() {
   };
 
   const handleComplete = () => {
-    if (confirm("Mark this validation as completed?")) {
-      updateRequestStatus(request.id, "validation_done", { 
+    if (!isFullyComplete) {
+      alert("Please complete all mandatory questions and measurements for all rooms before finalizing.");
+      return;
+    }
+    if (confirm("Finalise and generate report? This will create Version v" + (request.version || 1) + ".")) {
+      updateRequestStatus(request.id, "report_generated", { 
         end_time: new Date().toISOString(), 
         validation_data: formData 
-      });
-      alert("Validation marked as completed! You can now generate the report.");
+      }, true); // finalize = true
+      router.push(`/reports/${request.id}`);
     }
   };
 
@@ -245,10 +267,10 @@ export default function ValidateRequestPage() {
           </div>
         ) : (
           <>
-            {/* Society Constraints */}
+            {/* Work Environment (formerly Society Constraints) */}
             <div className="bg-white border border-livspace-gray-200 rounded-2xl p-4 shadow-sm">
               <Accordion 
-                title="Global Building & Society Constraints" 
+                title="Work Environment" 
                 badge={`${globalProgress.answered}/${globalProgress.total} answered (${globalProgress.percent}%)`}
               >
                 <SocietyConstraintsSection />
@@ -366,10 +388,16 @@ export default function ValidateRequestPage() {
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleComplete}
-                  className="inline-flex items-center justify-center gap-2 px-8 py-3 text-white rounded-xl font-bold transition-all shadow-lg bg-green-600 hover:bg-green-700 hover:scale-105"
+                  disabled={!isFullyComplete}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 px-8 py-4 text-white rounded-xl font-black transition-all shadow-lg",
+                    isFullyComplete 
+                      ? "bg-livspace-orange hover:bg-orange-600 hover:scale-105" 
+                      : "bg-livspace-gray-300 cursor-not-allowed opacity-70"
+                  )}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  Mark Validation Complete
+                  Finalise & Generate report
                 </button>
                 <button
                   onClick={handleOnHold}
@@ -379,6 +407,21 @@ export default function ValidateRequestPage() {
                   Mark On Hold
                 </button>
               </div>
+
+              {/* Version History (Internal) */}
+              {request.version_history && request.version_history.length > 0 && (
+                <div className="w-full mt-6 pt-6 border-t border-livspace-gray-100 text-left">
+                  <h4 className="text-[10px] font-black text-livspace-gray-400 uppercase tracking-widest mb-3">Previous Finalizations (Internal History)</h4>
+                  <div className="space-y-2">
+                    {request.version_history.map((h, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] bg-livspace-gray-50 p-2 rounded-lg border border-livspace-gray-100">
+                        <span className="font-bold text-livspace-dark italic">Version v{h.version}</span>
+                        <span className="text-livspace-gray-500 font-medium">Finalized on {new Date(h.finalized_at).toLocaleDateString()} at {new Date(h.finalized_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (

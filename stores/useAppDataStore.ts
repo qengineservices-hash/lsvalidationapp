@@ -55,6 +55,7 @@ export interface ValidationRequest {
   end_time?: string;
   last_edited_at?: string;
   version?: number;
+  version_history?: { version: number; finalized_at: string; finalized_by: string }[];
   on_hold_reason?: string;
   validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
@@ -228,13 +229,28 @@ export const useAppDataStore = create<AppDataState>()(
       createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
     },
 
-    updateRequestStatus: (id, status, extraData, incrementVersion = false) => {
+    updateRequestStatus: (id, status, extraData, finalize = false) => {
       const updatedTimestamp = new Date().toISOString();
       set((s) => ({
         validationRequests: s.validationRequests.map((r) => {
           if (r.id !== id) return r;
+          
           const isReopening = (r.status === "validation_done" || r.status === "report_generated") && status === "in_progress";
-          const newVersion = (isReopening || incrementVersion) ? (r.version || 1) + 1 : (r.version || 1);
+          let newVersion = r.version || 1;
+          const newHistory = [...(r.version_history || [])];
+
+          if (isReopening) {
+            newVersion = (r.version || 1) + 1;
+          }
+
+          if (finalize) {
+            newHistory.push({
+              version: newVersion,
+              finalized_at: updatedTimestamp,
+              finalized_by: r.assigned_to || "Unknown VL",
+            });
+          }
+
           return { 
             ...r, 
             ...extraData, 
@@ -242,6 +258,7 @@ export const useAppDataStore = create<AppDataState>()(
             updated_at: updatedTimestamp,
             last_edited_at: updatedTimestamp,
             version: newVersion,
+            version_history: newHistory,
           };
         }),
       }));
