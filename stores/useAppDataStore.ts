@@ -27,7 +27,7 @@ export interface City {
   is_active: boolean;
 }
 
-export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "validation_done" | "report_generated";
+export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "validation_done" | "report_generated" | "quote_generated" | "payment_confirmed";
 
 export interface ValidationRequest {
   id: string;
