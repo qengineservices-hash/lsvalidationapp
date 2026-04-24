@@ -100,9 +100,9 @@ export default function ValidateRequestPage() {
     addRoom,
     deleteRoom,
     updateSociety,
-    updateProject,
     importValidationData,
     resetValidation,
+    initializeProject,
   } = useValidationStore();
 
   const [newRoom, setNewRoom] = useState("");
@@ -117,27 +117,11 @@ export default function ValidateRequestPage() {
     if (request) {
       // Check if we need to switch project context
       if (formData.project.pid !== request.pid) {
-        resetValidation();
-        
-        // Populate basic info
         const city = cities.find((c) => c.id === request.city_id);
-        updateProject({
-          pid: request.pid,
-          customerName: request.customer_name,
-          city: city?.name || "",
-          address: request.address,
-          society: request.society_name,
-          flat: request.flat_no,
-          floorNo: request.floor_no,
-        });
-
-        // Restore saved validation data if exists
-        if (request.validation_data) {
-          importValidationData(request.validation_data);
-        }
+        initializeProject(request, city?.name);
       }
     }
-  }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, cities]);
+  }, [request?.id, request?.pid, formData.project.pid, initializeProject, cities]);
 
 
 

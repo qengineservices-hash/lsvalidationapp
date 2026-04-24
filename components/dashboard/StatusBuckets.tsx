@@ -12,6 +12,7 @@ interface StatusBucketsProps {
   getActionHref?: (request: ValidationRequest) => string;
   renderActions?: (request: ValidationRequest) => React.ReactNode;
   overrideBuckets?: { key: RequestStatus; label: string; emoji: string; statuses?: RequestStatus[] }[];
+  quoteMap?: Record<string, any>; // Map of request ID to quoteMetadata
 }
 
 const BUCKETS: { key: RequestStatus; label: string; emoji: string; statuses?: RequestStatus[] }[] = [
@@ -28,6 +29,7 @@ export default function StatusBuckets({
   getActionHref,
   renderActions,
   overrideBuckets,
+  quoteMap,
 }: StatusBucketsProps) {
   const bucketsToUse = overrideBuckets || BUCKETS;
   const [activeBucket, setActiveBucket] = useState<RequestStatus>(bucketsToUse[0].key);
@@ -104,6 +106,7 @@ export default function StatusBuckets({
               showAssignee={showAssignee}
               actionHref={getActionHref?.(request)}
               renderActions={renderActions}
+              quoteMetadata={quoteMap?.[request.id] || null}
             />
           ))}
         </div>

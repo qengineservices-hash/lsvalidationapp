@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useAuthStore, ROLE_LABELS, type UserRole } from "@/stores/useAuthStore";
 import { useAppDataStore, type City } from "@/stores/useAppDataStore";
 import type { AppUser } from "@/stores/useAuthStore";
@@ -19,7 +20,8 @@ import {
   FileDown,
   ChevronDown,
   Menu,
-  Settings
+  Settings,
+  Library
 } from "lucide-react";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import TableView from "@/components/dashboard/TableView";
@@ -71,9 +73,18 @@ export default function AdminPanel() {
           </p>
         </div>
 
-        {/* Admin Tools Dropdown (Hamburger Style) */}
-        <div className="relative">
-          <button
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/mrc"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border bg-white text-livspace-gray-700 border-livspace-gray-200 hover:border-livspace-blue hover:text-livspace-blue shadow-sm"
+          >
+            <Library className="w-4 h-4 text-livspace-blue" />
+            <span className="hidden sm:inline whitespace-nowrap">MRC Engine</span>
+          </Link>
+
+          {/* Admin Tools Dropdown (Hamburger Style) */}
+          <div className="relative">
+            <button
             onClick={() => setShowTools(!showTools)}
             className={cn(
               "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border",
@@ -117,7 +128,8 @@ export default function AdminPanel() {
                 ))}
               </div>
             </>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -151,7 +163,7 @@ function CitiesTab() {
       return;
     }
     addCity({
-      id: "city_" + Date.now(),
+      id: crypto.randomUUID(),
       name: form.name.trim(),
       code: form.code.trim().toUpperCase(),
       is_active: true,
@@ -274,7 +286,7 @@ function UsersTab() {
       return;
     }
 
-    const userId = "user_" + Date.now();
+    const userId = crypto.randomUUID();
     addUser({
       id: userId,
       email: form.email.toLowerCase().trim(),
@@ -286,7 +298,7 @@ function UsersTab() {
 
     // Auto-assign city if selected
     if (form.city_id) {
-      assignUserToCity({ id: "uc_" + Date.now(), user_id: userId, city_id: form.city_id });
+      assignUserToCity({ id: crypto.randomUUID(), user_id: userId, city_id: form.city_id });
     }
 
     setForm({ email: "", full_name: "", phone: "", role: "designer", city_id: "" });
@@ -486,7 +498,7 @@ function VmVlTab() {
       return;
     }
     assignVlToVm({
-      id: "vmvl_" + Date.now(),
+      id: crypto.randomUUID(),
       vm_id: selectedVm,
       vl_id: selectedVl,
       is_active: true,
@@ -562,7 +574,7 @@ function VlCityTab() {
       alert("Already assigned to this city.");
       return;
     }
-    assignUserToCity({ id: "uc_" + Date.now(), user_id: selectedUser, city_id: selectedCityId });
+    assignUserToCity({ id: crypto.randomUUID(), user_id: selectedUser, city_id: selectedCityId });
     setSelectedCityId("");
   };
 

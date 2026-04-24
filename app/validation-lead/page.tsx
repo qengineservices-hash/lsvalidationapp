@@ -6,15 +6,72 @@ import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import { ClipboardCheck, LayoutGrid, Table, FileDown } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useQuoteStatusUpdates } from "@/hooks/useQuoteStatusUpdates";
+import { X } from "lucide-react";
 
 export default function ValidationLeadDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
   const { getRequestsForVl, updateRequestStatus } = useAppDataStore();
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
+  const supabase = createClient();
+
+  const myAssignedRequests = getRequestsForVl(currentUser?.id || "");
+
+  // Realtime updates hook
+  const fetchQuotes = useCallback(async () => {
+    if (!currentUser || myAssignedRequests.length === 0) return;
+
+    // We can fetch quotes for our PIDs or purely by the validation_request_id.
+    // It's safest to match validation_request_id strictly since quotes are tied to them.
+    const requestIds = myAssignedRequests.map(r => r.id);
+    
+    // We chunk if it's too large, but for MVP just fetch
+    const { data: quotesData, error } = await supabase
+      .from("quotes")
+      .select(`
+        id,
+        quote_number,
+        validation_request_id,
+        status,
+        designer_quote_access (
+          access_token,
+          sent_to_designer_at:created_at,
+          first_accessed_at,
+          payment_confirmed_at
+        )
+      `)
+      .in('validation_request_id', requestIds);
+
+    if (!error && quotesData) {
+      const qMap: Record<string, any> = {};
+      quotesData.forEach(q => {
+        if (q.validation_request_id) {
+          const access = q.designer_quote_access?.[0];
+          qMap[q.validation_request_id] = {
+            id: q.id,
+            quote_number: q.quote_number,
+            status: q.status,
+            sent_to_designer_at: access?.sent_to_designer_at || null,
+            first_accessed_at: access?.first_accessed_at || null,
+            payment_confirmed_at: access?.payment_confirmed_at || null
+          };
+        }
+      });
+      setQuotesMap(qMap);
+    }
+  }, [currentUser, myAssignedRequests, supabase]);
+
+  const { toastMessage, clearToast } = useQuoteStatusUpdates(currentUser?.id, fetchQuotes);
+
+  useEffect(() => {
+    fetchQuotes();
+  }, [fetchQuotes]);
 
   // Safety: If Admin/Manager accidentally lands here, bounce them to their correct home
   useEffect(() => {
@@ -25,10 +82,18 @@ export default function ValidationLeadDashboard() {
 
   if (!currentUser || currentUser.role !== "validation_lead") return null;
 
-  const myAssignedRequests = getRequestsForVl(currentUser.id);
-
   return (
-    <div className="container py-8 space-y-8 max-w-4xl">
+    <div className="container py-8 space-y-8 max-w-4xl relative">
+      {/* Realtime Toast */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white p-4 rounded-xl shadow-lg flex items-start gap-3 max-w-md animate-in slide-in-from-top-4">
+          <p className="text-sm font-bold flex-1">{toastMessage}</p>
+          <button onClick={clearToast} className="p-1 hover:bg-emerald-700 rounded-lg transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-livspace-dark">
@@ -99,6 +164,7 @@ export default function ValidationLeadDashboard() {
               { key: "on_hold", label: "On Hold", emoji: "⏸️" },
               { key: "report_generated", label: "Completed", emoji: "✅", statuses: ["validation_done", "report_generated"] },
             ]}
+            quoteMap={quotesMap}
             getActionHref={(req) => req.status === "assigned" ? undefined : `/validation-lead/validate/${req.id}`}
             renderActions={(req) => {
               if (req.status === "assigned" && !req.accepted_at) {

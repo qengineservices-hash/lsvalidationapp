@@ -57,7 +57,7 @@ export default function NewValidationRequestPage() {
     }
 
     const request: ValidationRequest = {
-      id: "req_" + Date.now(),
+      id: crypto.randomUUID(),
       request_number: "SVR-" + Date.now().toString().slice(-6),
       pid: form.pid,
       customer_name: form.customer_name,

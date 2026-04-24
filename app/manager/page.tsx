@@ -10,6 +10,7 @@ import { exportGlobalTracker } from "@/lib/exportTracker";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import QuoteReviewsTab from "@/components/dashboard/QuoteReviewsTab";
 
 export default function ManagerDashboard() {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -18,6 +19,7 @@ export default function ManagerDashboard() {
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [topTab, setTopTab] = useState<"validations" | "quote_reviews">("validations");
 
   // Safety: If Lead/Designer accidentally lands here, bounce them
   useEffect(() => {
@@ -69,7 +71,25 @@ export default function ManagerDashboard() {
         </Link>
       </div>
 
-      {/* City Filters */}
+      {/* Top Level Nav */}
+      <div className="flex gap-4 border-b border-slate-200">
+        <button
+          onClick={() => setTopTab("validations")}
+          className={cn("px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "validations" ? "border-livspace-dark text-livspace-dark" : "border-transparent text-slate-500 hover:text-slate-800")}
+        >
+          Site Validations
+        </button>
+        <button
+          onClick={() => setTopTab("quote_reviews")}
+          className={cn("px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "quote_reviews" ? "border-livspace-dark text-livspace-dark" : "border-transparent text-slate-500 hover:text-slate-800")}
+        >
+          Quote Reviews
+        </button>
+      </div>
+
+      {topTab === "validations" ? (
+        <>
+          {/* City Filters */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setSelectedCity("all")}
@@ -195,6 +215,10 @@ export default function ManagerDashboard() {
           <TableView requests={filteredRequests} />
         )}
       </div>
+      </>
+      ) : (
+        <QuoteReviewsTab />
+      )}
     </div>
   );
 }

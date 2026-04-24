@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { createClient } from "@/lib/supabase/client";
 import type { AppUser, UserRole } from "./useAuthStore";
 
@@ -102,20 +103,23 @@ interface AppDataState {
   getRequestsForDesigner: (designerId: string) => ValidationRequest[];
   getRequestsForVl: (vlId: string) => ValidationRequest[];
   getRequestsForCity: (cityId: string) => ValidationRequest[];
+  
+  // Sync
+  syncAllData: () => Promise<void>;
 }
 
 export const DEFAULT_CITIES: City[] = [
-  { id: "city_blr", name: "Bangalore", code: "BLR", is_active: true },
-  { id: "city_mum", name: "Mumbai", code: "MUM", is_active: true },
-  { id: "city_del", name: "Delhi", code: "DEL", is_active: true },
-  { id: "city_hyd", name: "Hyderabad", code: "HYD", is_active: true },
-  { id: "city_chn", name: "Chennai", code: "CHN", is_active: true },
-  { id: "city_noi", name: "Noida", code: "NOI", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000101", name: "Bangalore", code: "BLR", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000102", name: "Mumbai", code: "MUM", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000103", name: "Delhi", code: "DEL", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000104", name: "Hyderabad", code: "HYD", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000105", name: "Chennai", code: "CHN", is_active: true },
+  { id: "00000000-0000-0000-0000-000000000106", name: "Noida", code: "NOI", is_active: true },
 ];
 
 // Seed admin user
 export const SEED_ADMIN: AppUser = {
-  id: "user_admin_001",
+  id: "00000000-0000-0000-0000-000000000001",
   email: "qengine_services@livspace.com",
   full_name: "QEngine Admin",
   phone: "",
@@ -124,7 +128,8 @@ export const SEED_ADMIN: AppUser = {
 };
 
 export const useAppDataStore = create<AppDataState>()(
-  (set, get) => ({
+  persist(
+    (set, get) => ({
     users: [SEED_ADMIN],
     cities: DEFAULT_CITIES,
     vmVlAssignments: [],
@@ -294,7 +299,30 @@ export const useAppDataStore = create<AppDataState>()(
     getRequestsForVl: (vlId) =>
       get().validationRequests.filter((r) => r.assigned_to === vlId),
 
-    getRequestsForCity: (cityId) =>
+    getRequestsForCity: (cityId: string) =>
       get().validationRequests.filter((r) => r.city_id === cityId),
-  })
+
+    // ---- Sync ----
+    syncAllData: async () => {
+      const supabase = createClient();
+      
+      const [uRes, cRes, rRes, vRes, ucRes] = await Promise.all([
+        supabase.from("app_users").select("*"),
+        supabase.from("app_cities").select("*"),
+        supabase.from("app_validation_requests").select("*"),
+        supabase.from("app_vm_vl_assignments").select("*"),
+        supabase.from("app_user_cities").select("*")
+      ]);
+
+      set({
+        users: uRes.data || [SEED_ADMIN],
+        cities: (cRes.data && cRes.data.length > 0) ? cRes.data : DEFAULT_CITIES,
+        validationRequests: rRes.data?.map(r => r.data) || [],
+        vmVlAssignments: vRes.data || [],
+        userCities: ucRes.data || []
+      });
+    }
+  }),
+  { name: "ls-app-data" }
+ )
 );

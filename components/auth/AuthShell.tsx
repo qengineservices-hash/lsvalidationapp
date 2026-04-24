@@ -9,7 +9,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 // Pages that don't require auth
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/quote-view"];
 
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   const { currentUser, isAuthenticated, logout } = useAuthStore();
@@ -128,6 +128,39 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
                       <Home className="w-4 h-4" />
                       Dashboard
                     </Link>
+
+                    {/* Role-specific links */}
+                    {currentUser.role === "validation_lead" && (
+                      <Link
+                        href="/quotation"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-livspace-gray-600 hover:bg-livspace-gray-50 transition-colors"
+                      >
+                        <span className="w-4 h-4 text-center text-xs">📋</span>
+                        My Quotations
+                      </Link>
+                    )}
+                    {currentUser.role === "validation_manager" && (
+                      <Link
+                        href="/manager"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-livspace-gray-600 hover:bg-livspace-gray-50 transition-colors"
+                      >
+                        <span className="w-4 h-4 text-center text-xs">📝</span>
+                        Quote Reviews
+                      </Link>
+                    )}
+                    {(currentUser.role === "admin" || currentUser.role === "super_admin") && (
+                      <Link
+                        href="/admin/mrc"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-livspace-gray-600 hover:bg-livspace-gray-50 transition-colors"
+                      >
+                        <span className="w-4 h-4 text-center text-xs">📦</span>
+                        MRC Management
+                      </Link>
+                    )}
+
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

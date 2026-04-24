@@ -162,6 +162,7 @@ interface ValidationState {
   // Actions — Persistence
   importValidationData: (data: any) => void;
   resetValidation: () => void;
+  initializeProject: (request: any, city?: string) => void;
 
   // Actions — Navigation
   setActiveRoom: (room: string) => void;
@@ -252,6 +253,34 @@ export const useValidationStore = create<ValidationState>()(
         activeRoom: DEFAULT_ROOMS[0],
         accordionState: {},
         formData: { ...INITIAL_FORM_DATA } 
+      }),
+
+      initializeProject: (request, cityName) => set((s) => {
+        const valData = request.validation_data;
+        
+        // Use provided validation_data or fall back to defaults
+        const roomOrder = valData?.roomOrder || [...DEFAULT_ROOMS];
+        const rooms = valData?.rooms || createInitialRooms();
+        const society = valData?.society || {};
+
+        return {
+          activeRoom: roomOrder[0] || DEFAULT_ROOMS[0],
+          accordionState: {},
+          formData: {
+            project: {
+              pid: request.pid,
+              customerName: request.customer_name,
+              city: cityName || "",
+              address: request.address,
+              society: request.society_name,
+              flat: request.flat_no,
+              floorNo: request.floor_no,
+            },
+            society,
+            roomOrder,
+            rooms,
+          }
+        };
       }),
 
       // Navigation
