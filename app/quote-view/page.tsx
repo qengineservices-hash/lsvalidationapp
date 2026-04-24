@@ -153,7 +153,8 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
       return acc;
     }, {} as Record<string, { count: number, amount: number }>);
     
-    return Object.entries(summary).sort((a, b) => b[1].amount - a[1].amount);
+    return (Object.entries(summary) as [string, { count: number, amount: number }][])
+      .sort((a, b) => b[1].amount - a[1].amount);
   };
   const categorySummary = calculateCategorySummary();
 
