@@ -150,7 +150,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
                         Quote Reviews
                       </Link>
                     )}
-                    {(currentUser.role === "admin" || currentUser.role === "super_admin") && (
+                    {((currentUser.role as string) === "admin" || (currentUser.role as string) === "super_admin") && (
                       <Link
                         href="/admin/mrc"
                         onClick={() => setMenuOpen(false)}
