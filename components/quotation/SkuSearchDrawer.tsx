@@ -62,7 +62,7 @@ export default function SkuSearchDrawer({
         const filtered = cacheRef.current[cityId].filter(item => 
           item.sku_name.toLowerCase().includes(q) ||
           item.sku_code.toLowerCase().includes(q) ||
-          (item.description || "").toLowerCase().includes(q) ||
+          (item.sub_category_name || "").toLowerCase().includes(q) ||
           (item.category_name || "").toLowerCase().includes(q)
         );
         setResults(filtered.slice(0, 50));
@@ -92,7 +92,7 @@ export default function SkuSearchDrawer({
         setResults(data.filter((item: MRCItem) => 
           item.sku_name.toLowerCase().includes(q) ||
           item.sku_code.toLowerCase().includes(q) ||
-          (item.description || "").toLowerCase().includes(q)
+          (item.sub_category_name || "").toLowerCase().includes(q)
         ).slice(0, 50));
       }
     } catch (err: any) {
@@ -159,8 +159,7 @@ export default function SkuSearchDrawer({
         mrc_item_id: item.id,
         item_name: item.sku_name,
         service_on: item.service_on || "",
-        description: item.description,
-        brand_specification: item.brand_specification,
+        description: item.sub_category_name || "",
         unit: item.unit,
         quantity: calculatedQty,
         unit_price: item.rate,
@@ -312,7 +311,7 @@ function SkuCard({ item, onAdd, adding }: { item: MRCItem, onAdd: () => void, ad
         </div>
       </div>
       <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
-        <p className="text-xs text-slate-500 line-clamp-1 flex-1 pr-4">{item.description}</p>
+        <p className="text-xs text-slate-500 line-clamp-1 flex-1 pr-4">{item.sub_category_name || item.category_name || ''}</p>
         <button 
           onClick={onAdd}
           disabled={adding}
