@@ -2,17 +2,28 @@
 
 import type { ValidationRequest, RequestStatus } from "@/stores/useAppDataStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
 import { Clock, User, MapPin, Hash } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDateTime, calculateDuration, getEmailLink } from "@/lib/formatters";
-import { Mail, ExternalLink } from "lucide-react";
+import { Mail, ExternalLink, PlusCircle } from "lucide-react";
+
+export interface QuoteMetadata {
+  id: string;
+  quote_number: string;
+  status: string;
+  sent_to_designer_at?: string;
+  first_accessed_at?: string;
+  payment_confirmed_at?: string;
+}
 
 interface RequestCardProps {
   request: ValidationRequest;
   showAssignee?: boolean;
   actionHref?: string;
   renderActions?: (request: ValidationRequest) => React.ReactNode;
+  quoteMetadata?: QuoteMetadata | null;
 }
 
 const STATUS_STYLES: Record<RequestStatus, { label: string; bg: string; text: string }> = {
@@ -22,6 +33,8 @@ const STATUS_STYLES: Record<RequestStatus, { label: string; bg: string; text: st
   on_hold: { label: "On Hold", bg: "bg-red-100", text: "text-red-700" },
   validation_done: { label: "Validation Done", bg: "bg-green-100", text: "text-green-700" },
   report_generated: { label: "Report Generated", bg: "bg-emerald-100", text: "text-emerald-800" },
+  quote_generated: { label: "Quotation Generated", bg: "bg-blue-100", text: "text-blue-700" },
+  payment_confirmed: { label: "Payment Confirmed", bg: "bg-green-100", text: "text-green-700" },
 };
 
 export default function RequestCard({
@@ -29,9 +42,13 @@ export default function RequestCard({
   showAssignee = false,
   actionHref,
   renderActions,
+  quoteMetadata,
 }: RequestCardProps) {
   const router = useRouter();
   const { getUserById, cities } = useAppDataStore();
+  const { currentUser } = useAuthStore();
+  const role = currentUser?.role;
+  const isDesigner = role === 'designer';
 
   const designer = getUserById(request.requested_by);
   const city = cities.find((c) => c.id === request.city_id);
@@ -164,13 +181,15 @@ export default function RequestCard({
           )}
           {actionHref && (
             <div className="flex items-center gap-3">
+          {/* We will handle Quotation actions in a separate section below */}
+
               {!renderActions && (
                 <div className="text-[10px] font-bold text-livspace-orange flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                   {hasReport ? "View Report" : "Continue"}
                   <ExternalLink className="w-3 h-3" />
                 </div>
               )}
-              {hasReport && (
+              {hasReport && !isDesigner && (
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -185,6 +204,122 @@ export default function RequestCard({
           )}
         </div>
       </div>
+
+      {/* QUOTATION SECTION */}
+      {hasReport && (
+        <div className="pt-3 border-t border-livspace-gray-100 flex flex-col gap-2 relative z-10" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-livspace-gray-400 uppercase">Quotation Status</span>
+            
+            {/* Logic for badges based on the cases */}
+            {!quoteMetadata && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                No Quote Created
+              </span>
+            )}
+            {quoteMetadata?.status === 'draft' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                Quote Draft
+              </span>
+            )}
+            {quoteMetadata?.status === 'pending_vm_review' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                Awaiting VM Review
+              </span>
+            )}
+            {quoteMetadata?.status === 'pending_nm_approval' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                NM Approval Needed
+              </span>
+            )}
+            {quoteMetadata?.status === 'vm_approved' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                VM Approved
+              </span>
+            )}
+            {quoteMetadata?.status === 'sent_to_designer' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                Sent to Designer
+              </span>
+            )}
+            {(quoteMetadata?.status === 'payment_confirmed' || quoteMetadata?.status === 'locked') && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 flex items-center gap-1">
+                ✓ Payment Confirmed
+              </span>
+            )}
+          </div>
+
+          {/* Details & Actions per case */}
+          <div className="flex flex-col gap-2 mt-1 w-full">
+            {!quoteMetadata && !isDesigner && (
+              <button
+                onClick={(e) => { e.stopPropagation(); window.location.href = `/quotation/${request.id}`; }}
+                className="w-full py-2 bg-livspace-blue text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition"
+              >
+                Create Quotation
+              </button>
+            )}
+
+            {!quoteMetadata && isDesigner && (
+              <div className="text-[10px] text-slate-400 font-medium italic py-2 text-center border border-dashed border-slate-200 rounded-lg">
+                Waiting for VL to create quotation...
+              </div>
+            )}
+
+            {quoteMetadata?.status === 'draft' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); window.location.href = `/quotation/${request.id}`; }}
+                className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-50 transition"
+              >
+                Continue Building
+              </button>
+            )}
+
+            {quoteMetadata?.status === 'sent_to_designer' && (
+              <div className="flex flex-col gap-2">
+                <div className="text-[9px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-1">
+                  <div><span className="font-medium text-slate-700">Sent on:</span> {quoteMetadata.sent_to_designer_at ? formatDateTime(quoteMetadata.sent_to_designer_at) : '—'}</div>
+                  <div><span className="font-medium text-slate-700">Designer accessed:</span> {quoteMetadata.first_accessed_at ? 'Yes' : 'No'}</div>
+                </div>
+                {isDesigner && quoteMetadata.access_token && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.location.href = `/quote-view?token=${quoteMetadata.access_token}`; }}
+                    className="w-full py-2 bg-livspace-orange text-white text-[10px] font-bold rounded-lg hover:bg-orange-600 transition"
+                  >
+                    View & Confirm Payment
+                  </button>
+                )}
+              </div>
+            )}
+
+            {(quoteMetadata?.status === 'payment_confirmed' || quoteMetadata?.status === 'locked') && (
+              <>
+                <div className="text-[9px] text-green-800 bg-green-50 p-2 rounded-lg border border-green-100">
+                  <span className="font-bold">10% payment confirmed</span> by Designer on {quoteMetadata.payment_confirmed_at ? formatDateTime(quoteMetadata.payment_confirmed_at) : '—'}
+                </div>
+                <div className="flex gap-2 w-full mt-1">
+                  <button
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      alert("Opening PDF generation mode...");
+                      window.location.href = `/quotation/${request.id}/summary`;
+                    }}
+                    className="flex-1 py-1.5 bg-livspace-dark text-white text-[10px] font-bold rounded hover:bg-black transition text-center"
+                  >
+                    View Summary & PDF
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.location.href = `/quotation/${request.id}`; }}
+                    className="flex-1 py-1.5 bg-white border border-livspace-dark text-livspace-dark text-[10px] font-bold rounded hover:bg-slate-50 transition text-center"
+                  >
+                    View Quote
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

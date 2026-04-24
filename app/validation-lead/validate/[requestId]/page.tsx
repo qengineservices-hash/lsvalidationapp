@@ -2,7 +2,7 @@
 
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useValidationStore, WALL_QUESTIONS, ROOM_QUESTIONS, MEASUREMENT_FIELDS, PHOTO_SURFACES } from "@/stores/useValidationStore";
+import { useValidationStore, WALL_QUESTIONS, ROOM_QUESTIONS, MEASUREMENT_FIELDS, PHOTO_SURFACES, SOCIETY_QUESTIONS } from "@/stores/useValidationStore";
 import WallQuestionsSection from "@/components/validation/WallQuestions";
 import RoomQuestionsSection from "@/components/validation/RoomQuestions";
 import MeasurementSection from "@/components/validation/MeasurementSection";
@@ -80,8 +80,7 @@ function getRoomProgress(roomData: any) {
 }
 
 function getGlobalProgress(formData: any) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { SOCIETY_QUESTIONS } = require("@/stores/useValidationStore");
+  if (!formData?.society) return { answered: 0, total: SOCIETY_QUESTIONS.length, percent: 0 };
   const answered = Object.values(formData.society).filter((v) => !!v).length;
   const total = SOCIETY_QUESTIONS.length;
   return { answered, total, percent: total === 0 ? 100 : Math.round((answered / total) * 100) };
@@ -101,9 +100,9 @@ export default function ValidateRequestPage() {
     addRoom,
     deleteRoom,
     updateSociety,
-    updateProject,
     importValidationData,
     resetValidation,
+    initializeProject,
   } = useValidationStore();
 
   const [newRoom, setNewRoom] = useState("");
@@ -118,27 +117,11 @@ export default function ValidateRequestPage() {
     if (request) {
       // Check if we need to switch project context
       if (formData.project.pid !== request.pid) {
-        resetValidation();
-        
-        // Populate basic info
         const city = cities.find((c) => c.id === request.city_id);
-        updateProject({
-          pid: request.pid,
-          customerName: request.customer_name,
-          city: city?.name || "",
-          address: request.address,
-          society: request.society_name,
-          flat: request.flat_no,
-          floorNo: request.floor_no,
-        });
-
-        // Restore saved validation data if exists
-        if (request.validation_data) {
-          importValidationData(request.validation_data);
-        }
+        initializeProject(request, city?.name);
       }
     }
-  }, [request, formData.project.pid, resetValidation, updateProject, importValidationData, cities]);
+  }, [request?.id, request?.pid, formData.project.pid, initializeProject, cities]);
 
 
 
@@ -158,7 +141,8 @@ export default function ValidateRequestPage() {
 
     // Compare against the MOST RECENT finalized snapshot
     const lastHistory = request.version_history[request.version_history.length - 1];
-    const previousSnapshot = lastHistory.data;
+    const previousSnapshot = lastHistory?.data;
+    if (!previousSnapshot) return true;
     
     // Create stripped versions for comparison (ignore UI state like activeRoom)
     const currentComp = {
@@ -168,13 +152,13 @@ export default function ValidateRequestPage() {
     };
     
     const previousComp = {
-      society: previousSnapshot.society,
-      roomOrder: previousSnapshot.roomOrder,
-      rooms: previousSnapshot.rooms
+      society: previousSnapshot?.society || {},
+      roomOrder: previousSnapshot?.roomOrder || [],
+      rooms: previousSnapshot?.rooms || {}
     };
 
     return JSON.stringify(currentComp) !== JSON.stringify(previousComp);
-  }, [formData, request?.version_history]);
+  }, [formData?.society, formData?.roomOrder, formData?.rooms, request?.version_history]);
 
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
 
