@@ -16,6 +16,7 @@ export interface QuoteMetadata {
   sent_to_designer_at?: string;
   first_accessed_at?: string;
   payment_confirmed_at?: string;
+  access_token?: string;
 }
 
 interface RequestCardProps {
