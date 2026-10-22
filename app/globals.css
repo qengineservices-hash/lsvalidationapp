@@ -4,65 +4,38 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 34 16% 96%; /* #F8F4F3 */
+    --foreground: 240 28% 15%; /* #1A1A2E */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 28% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 28% 15%;
 
-    --primary: 16 100% 61%; /* #FF6B35 HSL */
-    --primary-foreground: 210 40% 98%;
+    --primary: 357 81% 64%; /* #EB595F */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 304 22% 31%; /* #603E5E */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 14 36% 86%; /* #ECD3CD */
+    --accent-foreground: 304 22% 31%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 16 100% 61%;
+    --ring: 357 81% 64%;
 
     --radius: 0.75rem;
-  }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 16 100% 61%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 16 100% 61%;
+    /* Bottom nav height for mobile */
+    --bottom-nav-height: 64px;
   }
 }
 
@@ -71,24 +44,122 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-brand-surface text-brand-dark;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom Livspace Utilities */
+/* ==========================================
+   MOBILE-FIRST UTILITIES
+   ========================================== */
+
+@layer utilities {
+  /* Hide scrollbar for horizontal scroll tabs */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* iOS safe area bottom padding */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Content area needs bottom padding when bottom nav is visible */
+  .pb-bottom-nav {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}
+
+/* Custom Design System Utilities */
 .btn-primary {
-  @apply bg-livspace-orange hover:bg-livspace-orange-hover text-white rounded-lg px-4 py-2 transition-colors;
+  @apply bg-primary hover:bg-primary-hover text-white rounded-xl px-4 py-3 transition-all active:scale-95 font-semibold;
 }
 
-.card-livspace {
-  @apply bg-white border border-livspace-gray-200 rounded-xl shadow-sm overflow-hidden;
+.btn-secondary {
+  @apply bg-white border border-secondary text-secondary hover:bg-secondary-light rounded-xl px-4 py-3 transition-all active:scale-95 font-semibold;
 }
 
-.heading-livspace {
-  @apply text-livspace-dark font-semibold text-xl tracking-tight;
+.card-brand {
+  @apply bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden;
 }
 
-.label-livspace {
-  @apply text-livspace-gray-600 text-sm font-medium uppercase tracking-wide;
+.heading-primary {
+  @apply text-secondary font-bold text-2xl tracking-tight;
+}
+
+.heading-secondary {
+  @apply text-secondary font-semibold text-lg tracking-tight;
+}
+
+.label-brand {
+  @apply text-brand-muted text-[10px] font-bold uppercase tracking-wider;
+}
+
+/* ==========================================
+   MOBILE TOUCH-OPTIMIZED COMPONENTS
+   ========================================== */
+
+/* Minimum 44px touch target per Apple HIG */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+}
+
+/* Full-width mobile card */
+.mobile-card {
+  @apply bg-white border border-slate-200 rounded-2xl p-4 shadow-sm;
+}
+
+/* Mobile-friendly input */
+.mobile-input {
+  @apply w-full border border-livspace-gray-200 rounded-xl px-4 py-3 text-base outline-none 
+         focus:ring-2 focus:ring-livspace-orange transition-shadow;
+  /* Prevent iOS zoom on input focus by using 16px min font */
+  font-size: 16px;
+}
+
+/* Horizontal scroll tab bar */
+.scroll-tabs {
+  @apply flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.scroll-tabs > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Fixed bottom action bar (above bottom nav on mobile if needed) */
+.fixed-bottom-bar {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 
+         px-4 py-3 z-40 safe-bottom;
+}
+
+/* On mobile, if both exist, fixed-bottom-bar should be above bottom-nav */
+@media (max-width: 767px) {
+  .fixed-bottom-bar {
+    bottom: var(--bottom-nav-height);
+  }
+}
+
+/* Bottom navigation bar */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 
+         flex items-center justify-around z-50 safe-bottom;
+  height: var(--bottom-nav-height);
+}
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none;
+  }
+  .pb-bottom-nav {
+    padding-bottom: 0;
+  }
 }

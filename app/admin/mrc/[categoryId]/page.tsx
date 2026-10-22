@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MRCItemDrawer from "@/components/admin/MRCItemDrawer";
 import { 
   Plus, Edit2, CheckCircle2, XCircle, Search, 
-  Filter, Loader2, ArrowLeft, MoreVertical, Package
+  Filter, Loader2, ArrowLeft, MoreVertical, Package, ChevronDown
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default function CategoryDetailPage() {
@@ -33,6 +34,16 @@ export default function CategoryDetailPage() {
   // Drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchData();
@@ -249,40 +260,64 @@ export default function CategoryDetailPage() {
                     </tr>
                   ) : filteredItems.map((item) => {
                     const cityName = !item.city_id ? "Global (All Cities)" : (cities.find(c => c.id === item.city_id)?.name || "Unknown");
-                    // sub cat name could be fetched if needed, skipped for brevity in table row
+                    const isExpanded = expandedItems.has(item.id);
                     return (
-                      <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
-                        <td className="p-4 text-sm font-mono text-slate-600">{item.sku_code}</td>
-                        <td className="p-4 text-sm font-medium text-slate-800 w-1/3">
-                          {item.sku_name}
-                          {item.service_on && <span className="block text-xs font-normal text-slate-400 mt-0.5">Service: {item.service_on}</span>}
-                        </td>
-                        <td className="p-4 text-sm text-slate-600">{cityName}</td>
-                        <td className="p-4 text-sm text-slate-600">
-                          <span className="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600 font-medium">{item.unit}</span>
-                        </td>
-                        <td className="p-4 text-sm text-slate-800 font-semibold text-right">
-                          ₹{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-4 text-center">
-                          <button 
-                            onClick={() => toggleItemActive(item.id, item.is_active)}
-                            className={`inline-flex px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                              item.is_active ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                          >
-                            {item.is_active ? 'Active' : 'Inactive'}
-                          </button>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button 
-                            onClick={() => openDrawer(item)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
+                      <React.Fragment key={item.id}>
+                        <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                          <td className="p-4 text-sm font-mono text-slate-600">{item.sku_code}</td>
+                          <td className="p-4 text-sm font-medium text-slate-800 w-1/3">
+                            <div className="flex items-center gap-2">
+                               {item.description && (
+                                  <button 
+                                    onClick={() => toggleExpand(item.id)}
+                                    className="p-1 hover:bg-slate-200 rounded transition-colors"
+                                  >
+                                     <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                  </button>
+                               )}
+                               {item.sku_name}
+                            </div>
+                            {item.service_on && <span className="block text-xs font-normal text-slate-400 mt-0.5 ml-7">Service: {item.service_on}</span>}
+                          </td>
+                          <td className="p-4 text-sm text-slate-600">{cityName}</td>
+                          <td className="p-4 text-sm text-slate-600">
+                            <span className="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600 font-medium">{item.unit}</span>
+                          </td>
+                          <td className="p-4 text-sm text-slate-800 font-semibold text-right">
+                            ₹{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-4 text-center">
+                            <button 
+                              onClick={() => toggleItemActive(item.id, item.is_active)}
+                              className={`inline-flex px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                                item.is_active ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                              }`}
+                            >
+                              {item.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button 
+                              onClick={() => openDrawer(item)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                           <tr className="bg-slate-50/50">
+                              <td colSpan={7} className="px-14 py-4 text-xs text-slate-500 border-b border-slate-100 leading-relaxed italic">
+                                 <div className="flex flex-col gap-2">
+                                    <p><span className="font-bold uppercase text-[10px] text-slate-400 mr-2">Description:</span> {item.description}</p>
+                                    {item.brand_specification && (
+                                       <p><span className="font-bold uppercase text-[10px] text-slate-400 mr-2">Specification:</span> {item.brand_specification}</p>
+                                    )}
+                                 </div>
+                              </td>
+                           </tr>
+                        )}
+                      </React.Fragment>
                     )
                   })}
                 </tbody>

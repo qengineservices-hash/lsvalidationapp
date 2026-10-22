@@ -1,181 +1,142 @@
 "use client";
 
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useSearchParams, useRouter } from "next/navigation";
+import { formatDateTime } from "@/lib/formatters";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
-import StatusBuckets from "@/components/dashboard/StatusBuckets";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { PlusCircle, FileText, Receipt, ArrowRight, CheckCircle, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { PlusCircle, Clock, ArrowRight, File as FileIcon, CheckCircle, Receipt, ClipboardCheck, Home, LayoutGrid, Loader2 } from "lucide-react";
+import StatusBuckets from "@/components/dashboard/StatusBuckets";
+import QuotationBuckets from "@/components/quotation/QuotationBuckets";
+import GfcBuckets from "@/components/gfc/GfcBuckets";
 
-export default function DesignerDashboard() {
+function DesignerDashboardContent() {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const { getRequestsForDesigner } = useAppDataStore();
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [loadingQuotes, setLoadingQuotes] = useState(true);
-  const supabase = createClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { validationRequests } = useAppDataStore();
 
+  const initialTab = searchParams.get("tab") || "tracker";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  // Sync state with URL
   useEffect(() => {
-    if (!currentUser) return;
+    const tab = searchParams.get("tab") || "tracker";
+    setActiveTab(tab);
+  }, [searchParams]);
 
-    const requestsList = getRequestsForDesigner(currentUser.id);
-
-    async function fetchMyQuotes() {
-      // Get all validation request IDs that belong to this designer
-      const myRequestIds = requestsList.map(r => r.id).filter(Boolean);
-
-      if (myRequestIds.length === 0) {
-        setLoadingQuotes(false);
-        return;
-      }
-
-      const { data: quotesData, error: qErr } = await supabase
-        .from("quotes")
-        .select(`
-          id,
-          quote_number,
-          project_id,
-          total,
-          status,
-          validation_request_id,
-          designer_quote_access (
-            access_token,
-            payment_confirmed_at,
-            designer_email
-          )
-        `)
-        .in('validation_request_id', myRequestIds);
-
-      if (!qErr && quotesData) {
-        setQuotes(quotesData);
-      }
-      setLoadingQuotes(false);
-    }
-
-    fetchMyQuotes();
-  }, [currentUser, supabase, getRequestsForDesigner]);
+  const myRequests = useMemo(() => {
+    if (!currentUser) return [];
+    return validationRequests.filter((r) => r.requested_by === currentUser.id);
+  }, [validationRequests, currentUser]);
 
   if (!currentUser) return null;
 
-  const myRequests = getRequestsForDesigner(currentUser.id);
-  
-  // Create a map for StatusBuckets to show quote status on cards
-  const quoteMap = quotes.reduce((acc, q) => {
-    // Exact mapping by Validation Request ID
-    acc[q.validation_request_id] = {
-      id: q.id,
-      quote_number: q.quote_number,
-      status: q.status,
-      ...q.designer_quote_access?.[0]
-    };
-    return acc;
-  }, {} as any);
-
-  // We also need a version that maps by validation_request_id for exact mapping
-  // Let's update the fetch query to select validation_request_id too
-
   return (
-    <div className="container py-8 space-y-12 max-w-4xl">
-      {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-livspace-dark">
-            Hello, <span className="text-livspace-orange">{currentUser.full_name}</span>
+    <div className="container py-6 md:py-8 space-y-8 max-w-4xl pb-24 md:pb-8">
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-black text-secondary tracking-tight">
+            Hello, <span className="text-primary">{currentUser.full_name.split(' ')[0]}</span>
           </h1>
-          <p className="text-sm text-livspace-gray-500">
-            Raise new validation requests and track their progress.
-          </p>
+          <p className="text-sm text-brand-muted font-medium">Track your site validations and quotations.</p>
         </div>
         <Link
           href="/validation-requests/new"
-          className="btn-primary px-6 py-3 inline-flex items-center gap-2 font-bold text-sm rounded-xl"
+          className="flex items-center justify-center gap-2 px-6 py-4 bg-secondary text-white rounded-2xl font-bold text-sm hover:bg-secondary-hover transition-all shadow-xl shadow-secondary/20 group"
         >
-          <PlusCircle className="w-5 h-5" />
+          <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
           New Validation Request
         </Link>
       </div>
 
-      {/* My Quotations Section */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
-          <Receipt className="w-5 h-5 text-livspace-gray-500" />
-          My Quotations
-          <span className="text-sm font-normal text-livspace-gray-400">({quotes.length})</span>
-        </h2>
-
-        {loadingQuotes ? (
-          <div className="h-24 bg-white rounded-2xl border border-slate-100 flex items-center justify-center">
-            <Clock className="w-5 h-5 animate-spin text-slate-300" />
-          </div>
-        ) : quotes.length === 0 ? (
-          <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-center">
-            <p className="text-sm text-slate-500 font-medium whitespace-pre">
-              No quotations are ready yet.{"\n"}They will appear here once the VM approves your validation requests.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {quotes.map((q) => {
-              const access = q.designer_quote_access?.[0];
-              const isPaid = !!access?.payment_confirmed_at;
-              return (
-                <div key={q.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-[10px] font-bold text-livspace-blue bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
-                        {q.quote_number}
-                      </span>
-                      {isPaid ? (
-                        <span className="flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded uppercase tracking-wider">
-                          <CheckCircle className="w-3 h-3 mr-1" /> Paid
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded uppercase tracking-wider">
-                          {q.status === 'sent_to_designer' ? 'Action Required' : 'In Review'}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-slate-800 uppercase tracking-tight">{q.project_id}</h3>
-                    <p className="text-xs text-slate-500 mt-1">Total: <span className="font-bold text-slate-700">₹{Math.round(q.total).toLocaleString('en-IN')}</span></p>
-                  </div>
-                  
-                  {access?.access_token ? (
-                    <Link 
-                      href={`/quote-view?token=${access.access_token}`}
-                      className="mt-6 w-full py-2.5 bg-slate-50 hover:bg-livspace-dark hover:text-white border border-slate-200 rounded-xl text-xs font-bold text-livspace-dark text-center transition-all flex items-center justify-center group"
-                    >
-                      {isPaid ? "View Quotation" : "View & Confirm Payment"}
-                      <ArrowRight className="w-3 h-3 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  ) : (
-                    <div className="mt-6 w-full py-2.5 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-[10px] font-bold text-slate-400 text-center flex items-center justify-center">
-                      <Clock className="w-3 h-3 mr-2" />
-                      Approved. Waiting for VM to Send.
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* Navigation Tabs */}
+      <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm">
+        <button
+          onClick={() => router.push("/designer?tab=tracker")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all",
+            activeTab === "tracker" ? "bg-secondary text-white shadow-lg shadow-secondary/10" : "text-brand-muted hover:bg-slate-50"
+          )}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Validation Tracker
+        </button>
+        <button
+          onClick={() => router.push("/designer?tab=quotes")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all",
+            activeTab === "quotes" ? "bg-secondary text-white shadow-lg shadow-secondary/10" : "text-brand-muted hover:bg-slate-50"
+          )}
+        >
+          <Receipt className="w-4 h-4" />
+          Quotations
+        </button>
+        <button
+          onClick={() => router.push("/designer?tab=gfc")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all",
+            activeTab === "gfc" ? "bg-secondary text-white shadow-lg shadow-secondary/10" : "text-brand-muted hover:bg-slate-50"
+          )}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          GFC Handover
+        </button>
       </div>
 
-      {/* My Requests Tracker */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
-          <FileText className="w-5 h-5 text-livspace-gray-500" />
-          Validation Tracker
-          <span className="text-sm font-normal text-livspace-gray-400">({myRequests.length})</span>
-        </h2>
+      {/* Tab Content */}
+      <div className="mt-8">
+        {activeTab === "tracker" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-xl font-bold text-secondary flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                Live Tracker
+              </h2>
+            </div>
+            <StatusBuckets
+              requests={myRequests}
+              getActionHref={(r) => (r.status === "report_generated" || r.status === "validation_done" ? `/reports/${r.id}` : "")}
+            />
+          </div>
+        )}
 
-        <StatusBuckets 
-          requests={myRequests} 
-          showAssignee 
-          quoteMap={quoteMap}
-          getActionHref={(r) => `/reports/${r.id}`}
-        />
+        {activeTab === "quotes" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-xl font-bold text-secondary flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-primary" />
+                Project Quotations
+              </h2>
+            </div>
+            <QuotationBuckets designerId={currentUser.id} />
+          </div>
+        )}
+
+        {activeTab === "gfc" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-xl font-bold text-secondary flex items-center gap-2">
+                <LayoutGrid className="w-5 h-5 text-primary" />
+                GFC Status
+              </h2>
+            </div>
+            <GfcBuckets />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+export default function DesignerDashboard() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-secondary" /></div>}>
+      <DesignerDashboardContent />
+    </Suspense>
+  );
+}

@@ -1,6 +1,6 @@
 # LS Services App — IDE Context File
 # Read this before writing any code. This is the source of truth.
-# Last updated: April 2026 | Owner: Services Vertical, Livspace
+# Last updated: April 25, 2026 | Version: 2.1 | Owner: Services Vertical, Livspace
 
 ---
 
@@ -705,30 +705,40 @@ NEXT_PUBLIC_GEOFENCE_RADIUS_METERS=500
 
 ---
 
-## 13. CURRENT PHASE SCOPE (PHASE 1 ONLY)
+## 13. PROJECT STATUS & ROADMAP
 
-Build ONLY these features right now:
+Build status as of April 25, 2026:
 
-✅ Supabase project + database setup (all Phase 1 tables)
-✅ Next.js PWA with Livspace branding
-✅ Invite-only auth (admin creates users, no self-registration)
-✅ Role-based routing and navigation
-✅ Validation request submission form (Designers, VMs, VLs can submit)
-✅ Validation checklist (VL workflow — full offline capable)
-✅ Photo capture + canvas annotation (offline)
-✅ IndexedDB offline storage + sync to Supabase
-✅ Validation report PDF generation + download
-✅ Admin panel: user management + KT questions + cities
-✅ VL dashboard: simple list of assigned requests with status
+### ✅ PHASE 1: CORE INFRASTRUCTURE (COMPLETED)
+- [x] Supabase project & multi-role Auth (Invite-only)
+- [x] Next.js PWA with Livspace Design System (Gilroy typography & Primary #EB595F)
+- [x] Validation Toolkit: Check-in, 5-point Ceiling Heights, Room Management
+- [x] Photo Capture with Canvas Annotation (Offline-first)
+- [x] IndexedDB (Dexie) Sync Engine for offline site work
+- [x] Site Validation Report (PDF) & CSV Export
+- [x] Admin Panel: User/City/KT Question Management
 
-DO NOT build yet:
-❌ Geofencing / geolocation check-in (Phase 2)
-❌ VM assignment board (Phase 2)
-❌ Designer/DA portal (Phase 2)
-❌ Quote engine / MRC (Phase 3)
-❌ Supply team features (Phase 4)
-❌ Analytics / reporting dashboards (Phase 4)
-❌ Priority bucketing automation (Phase 2 — use manual priority for now)
+### ✅ PHASE 2: ROLE PORTALS & WORKFLOWS (COMPLETED)
+- [x] **Designer Portal**: Raise requests, view reports, track quotes, confirm payments
+- [x] **VM Dashboard**: Team-wide tracker, assign/reassign VLs, approve quotes
+- [x] **Design Associate (DA) Portal**: Manage GFC drawing requests, upload designs
+- [x] **GFC Workflow**: Request → Assign → Upload → VL/VM Approve → Published
+- [x] **Notifications System**: In-app alerts for all role transitions
+- [x] **Reassignment Logic**: Full audit log for VL change history
+
+### ✅ PHASE 3: QUOTATION ENGINE (COMPLETED)
+- [x] **MRC Integration**: City-specific Master Rate Card management & bulk upload
+- [x] **Quote Builder**: Add line items, quantity x rate, automatic area-based validations
+- [x] **Approval Workflow**: Draft → Pending VM → Pending NM → VM Approved
+- [x] **Quote Lock & Payment**: Confirming 50% payment to lock quotes for execution
+- [x] **Designer View**: Read-only quote access with token-based external links
+
+### 🚧 PHASE 4: SUPPLY & POST-ORDER (UPCOMING)
+- [ ] **Supply Executive Portal**: Post-payment project handover tracking
+- [ ] **Procurement Hub**: Auto-generate BOM (Bill of Materials) from quotes
+- [ ] **Service Partner Onboarding**: Assigning vetted partners for execution
+- [ ] **Advanced Geofencing**: Hard-blocking check-ins outside 500m radius
+- [ ] **Real-time Performance Dashboards**: Dynamic GMV/Efficiency insights for NM/Admin
 
 ---
 
@@ -828,5 +838,5 @@ Before Phase 1 dev starts, get answers to:
 
 ---
 
-*End of context file. Version: 1.0 | April 2026*
-*Do not modify this file without updating the version and date.*
+*End of context file. Version: 2.1 | April 25, 2026*
+*Current Focus: Finalising Validation/Quotation Stability and GFC Rollout.*

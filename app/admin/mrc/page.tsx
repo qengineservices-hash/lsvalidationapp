@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { 
   Plus, Edit2, CheckCircle2, XCircle, ChevronRight, 
   Layers, Package, MapPin, Activity, Loader2, Save, X
@@ -180,118 +181,170 @@ export default function MRCDashboard() {
   return (
     <div className="space-y-6">
       {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
-          <div className="bg-blue-100 p-3 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 flex items-center space-x-4">
+          <div className="bg-blue-100 p-3 rounded-xl shrink-0">
             <Layers className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total Categories</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalCategories}</p>
+            <p className="text-[10px] md:text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Categories</p>
+            <p className="text-xl md:text-2xl font-black text-slate-800">{stats.totalCategories}</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
-          <div className="bg-green-100 p-3 rounded-lg">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 flex items-center space-x-4">
+          <div className="bg-green-100 p-3 rounded-xl shrink-0">
             <Package className="w-6 h-6 text-green-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total SKUs</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalSkus}</p>
+            <p className="text-[10px] md:text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total SKUs</p>
+            <p className="text-xl md:text-2xl font-black text-slate-800">{stats.totalSkus}</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
-          <div className="bg-purple-100 p-3 rounded-lg">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 flex items-center space-x-4">
+          <div className="bg-purple-100 p-3 rounded-xl shrink-0">
             <MapPin className="w-6 h-6 text-purple-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Active Cities</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.activeCities}</p>
+            <p className="text-[10px] md:text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Active Cities</p>
+            <p className="text-xl md:text-2xl font-black text-slate-800">{stats.activeCities}</p>
           </div>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 md:p-6 border-b border-slate-200 flex flex-col md:flex-row md:justify-between md:items-center bg-slate-50/50 gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Item Categories</h2>
-            <p className="text-sm text-slate-500 mt-1">Manage core MRC groupings and display orders</p>
+            <h2 className="text-base md:text-lg font-bold text-slate-800">Item Categories</h2>
+            <p className="text-xs md:text-sm text-slate-500 mt-1 font-medium">Manage core MRC groupings</p>
           </div>
           <button 
             onClick={openAddModal}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
+            className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 md:py-2 rounded-xl font-bold transition-all shadow-sm touch-target"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5 md:w-4 md:h-4" />
             <span>Add Category</span>
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
-                <th className="p-4 font-medium">Order</th>
-                <th className="p-4 font-medium">Category Name</th>
-                <th className="p-4 font-medium">Sub-categories</th>
-                <th className="p-4 font-medium">Total SKUs</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium text-right">Actions</th>
+              <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                <th className="px-6 py-4">Order</th>
+                <th className="px-6 py-4">Category Name</th>
+                <th className="px-6 py-4">Sub-categories</th>
+                <th className="px-6 py-4">Total SKUs</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {categories.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
-                    No categories found. Click "Add Category" to get started.
+                  <td colSpan={6} className="p-12 text-center text-slate-400 font-bold">
+                    No categories found.
                   </td>
                 </tr>
               ) : categories.map((cat) => (
-                <tr key={cat.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors group">
-                  <td className="p-4 text-sm text-slate-500 font-mono">{cat.display_order}</td>
-                  <td className="p-4">
-                    <Link href={`/admin/mrc/${cat.id}`} className="font-semibold text-slate-800 hover:text-blue-600 flex items-center space-x-2 w-max">
-                      <span>{cat.name}</span>
+                <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-4 text-sm font-black text-slate-400 font-mono">{cat.display_order}</td>
+                  <td className="px-6 py-4">
+                    <Link href={`/admin/mrc/${cat.id}`} className="font-bold text-slate-800 hover:text-blue-600 transition-colors">
+                      {cat.name}
                     </Link>
                   </td>
-                  <td className="p-4 text-sm text-slate-600">
-                    <span className="bg-slate-100 px-2 py-1 rounded-md">{cat.sub_categories_count}</span>
+                  <td className="px-6 py-4">
+                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-black">{cat.sub_categories_count}</span>
                   </td>
-                  <td className="p-4 text-sm text-slate-600">
-                    <span className="bg-slate-100 px-2 py-1 rounded-md">{cat.items_count}</span>
+                  <td className="px-6 py-4">
+                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-black">{cat.items_count}</span>
                   </td>
-                  <td className="p-4">
+                  <td className="px-6 py-4">
                     <button 
                       onClick={() => toggleActive(cat.id, cat.is_active)}
-                      className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all",
                         cat.is_active 
-                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                          : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                      }`}
+                          ? 'bg-green-50 text-green-700 border-green-200' 
+                          : 'bg-slate-100 text-slate-500 border-slate-200'
+                      )}
                     >
-                      {cat.is_active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                      <span>{cat.is_active ? 'Active' : 'Inactive'}</span>
+                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", cat.is_active ? "bg-green-500" : "bg-slate-400")} />
+                      {cat.is_active ? 'Active' : 'Inactive'}
                     </button>
                   </td>
-                  <td className="p-4 text-right flex items-center justify-end space-x-2">
-                    <button 
-                      onClick={() => openEditModal(cat)}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Edit Category"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <Link 
-                      href={`/admin/mrc/${cat.id}`}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Details"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </Link>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => openEditModal(cat)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <Link 
+                        href={`/admin/mrc/${cat.id}`}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {categories.length === 0 ? (
+             <div className="p-12 text-center text-slate-400 font-bold">No categories found.</div>
+          ) : categories.map((cat) => (
+             <div key={cat.id} className="p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                   <Link href={`/admin/mrc/${cat.id}`} className="font-bold text-slate-800 text-sm">
+                      {cat.name}
+                   </Link>
+                   <button 
+                      onClick={() => toggleActive(cat.id, cat.is_active)}
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                        cat.is_active ? 'bg-green-50 text-green-700 border-green-100' : 'bg-slate-100 text-slate-500 border-slate-100'
+                      )}
+                   >
+                      {cat.is_active ? 'Active' : 'Inactive'}
+                   </button>
+                </div>
+                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
+                   <div className="flex gap-4">
+                      <div className="text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight">Subs</p>
+                         <p className="text-xs font-bold text-slate-700">{cat.sub_categories_count}</p>
+                      </div>
+                      <div className="text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight">SKUs</p>
+                         <p className="text-xs font-bold text-slate-700">{cat.items_count}</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => openEditModal(cat)}
+                        className="p-2.5 text-blue-600 bg-white border border-slate-100 rounded-xl"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <Link 
+                        href={`/admin/mrc/${cat.id}`}
+                        className="p-2.5 text-slate-400 bg-white border border-slate-100 rounded-xl"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </Link>
+                   </div>
+                </div>
+             </div>
+          ))}
         </div>
       </div>
 

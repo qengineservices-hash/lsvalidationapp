@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type UserRole = "admin" | "super_admin" | "designer" | "validation_manager" | "validation_lead";
+export type UserRole = "admin" | "super_admin" | "designer" | "validation_manager" | "validation_lead" | "design_associate";
 
 export interface AppUser {
   id: string;
@@ -32,6 +32,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   designer: "Designer",
   validation_manager: "Validation Manager",
   validation_lead: "Validation Lead",
+  design_associate: "Design Associate",
 };
 
 // Role-specific dashboard paths
@@ -41,6 +42,7 @@ export const ROLE_DASHBOARD: Record<UserRole, string> = {
   designer: "/designer",
   validation_manager: "/manager",
   validation_lead: "/validation-lead",
+  design_associate: "/design-associate",
 };
 
 export const useAuthStore = create<AuthState>()(

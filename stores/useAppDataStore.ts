@@ -27,7 +27,7 @@ export interface City {
   is_active: boolean;
 }
 
-export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "validation_done" | "report_generated" | "quote_generated" | "payment_confirmed";
+export type RequestStatus = "new" | "assigned" | "in_progress" | "on_hold" | "validation_done" | "report_generated" | "quote_generated" | "payment_confirmed" | "gfc_requested";
 
 export interface ValidationRequest {
   id: string;
@@ -58,6 +58,8 @@ export interface ValidationRequest {
   version?: number;
   version_history?: { version: number; data: any; finalized_at: string; finalized_by: string }[];
   on_hold_reason?: string;
+  quote_requested_at?: string;
+  quote_requested_by?: string;
   validation_data?: any; // Stores the full ValidationStore formData
   created_at: string;
   updated_at: string;
@@ -98,7 +100,7 @@ interface AppDataState {
 
   // Validation Requests
   addRequest: (request: ValidationRequest) => void;
-  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>, finalize?: boolean) => void;
+  updateRequestStatus: (id: string, status: RequestStatus, extraData?: Partial<ValidationRequest>, finalize?: boolean) => Promise<void>;
   assignVlToRequest: (requestId: string, vlId: string, vmId: string) => void;
   getRequestsForDesigner: (designerId: string) => ValidationRequest[];
   getRequestsForVl: (vlId: string) => ValidationRequest[];
@@ -229,12 +231,14 @@ export const useAppDataStore = create<AppDataState>()(
     // ---- Validation Requests ----
     addRequest: (request) => {
       set((s) => ({
-        validationRequests: [...s.validationRequests, request],
+        validationRequests: [...s.validationRequests, request].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
       }));
       createClient().from("app_validation_requests").insert({ id: request.id, data: request }).then();
     },
 
-    updateRequestStatus: (id, status, extraData, finalize = false) => {
+    updateRequestStatus: async (id, status, extraData, finalize = false) => {
       const updatedTimestamp = new Date().toISOString();
       set((s) => ({
         validationRequests: s.validationRequests.map((r) => {
@@ -267,7 +271,7 @@ export const useAppDataStore = create<AppDataState>()(
       // Push the whole updated request since it's a JSONB dump
       const updatedReq = get().validationRequests.find(r => r.id === id);
       if (updatedReq) {
-        createClient().from("app_validation_requests").update({ data: updatedReq, updated_at: updatedTimestamp }).eq("id", id).then();
+        await createClient().from("app_validation_requests").update({ data: updatedReq, updated_at: updatedTimestamp }).eq("id", id);
       }
     },
 
@@ -294,13 +298,19 @@ export const useAppDataStore = create<AppDataState>()(
     },
 
     getRequestsForDesigner: (designerId) =>
-      get().validationRequests.filter((r) => r.requested_by === designerId),
+      get().validationRequests
+        .filter((r) => r.requested_by === designerId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
 
     getRequestsForVl: (vlId) =>
-      get().validationRequests.filter((r) => r.assigned_to === vlId),
+      get().validationRequests
+        .filter((r) => r.assigned_to === vlId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
 
     getRequestsForCity: (cityId: string) =>
-      get().validationRequests.filter((r) => r.city_id === cityId),
+      get().validationRequests
+        .filter((r) => r.city_id === cityId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
 
     // ---- Sync ----
     syncAllData: async () => {
@@ -317,7 +327,9 @@ export const useAppDataStore = create<AppDataState>()(
       set({
         users: uRes.data || [SEED_ADMIN],
         cities: (cRes.data && cRes.data.length > 0) ? cRes.data : DEFAULT_CITIES,
-        validationRequests: rRes.data?.map(r => r.data) || [],
+        validationRequests: (rRes.data?.map(r => r.data) || []).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
         vmVlAssignments: vRes.data || [],
         userCities: ucRes.data || []
       });

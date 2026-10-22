@@ -473,14 +473,14 @@ export default function ValidateRequestPage() {
                 Edit Validation
               </button>
               <button 
-                onClick={() => {
-                  updateRequestStatus(request.id, "report_generated");
-                  router.push(`/reports/${request.id}`);
+                onClick={async () => {
+                  await updateRequestStatus(request.id, "report_generated"); // ensure status is correct and syncs
+                  window.location.href = `/quotation/${request.id}`;
                 }}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-colors shadow-lg"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-secondary-hover transition-colors shadow-lg"
               >
-                <FileSpreadsheet className="w-4 h-4" />
-                Generate Report
+                <ClipboardList className="w-4 h-4" />
+                Go to Quotation Builder
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppDataStore } from "@/stores/useAppDataStore";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Printer, FileDown, ExternalLink, ChevronDown, Mail, Clock, Info, Stars, Ruler, Camera, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ function ReportPageContent() {
   const requestId = params?.requestId as string;
   const versionParam = searchParams.get("v");
   const { validationRequests, getUserById, cities, updateRequestStatus } = useAppDataStore();
+  const { currentUser } = useAuthStore();
   const request = validationRequests.find((r) => r.id === requestId);
   
   const [manualInsight, setManualInsight] = useState("");
@@ -185,22 +187,30 @@ function ReportPageContent() {
   return (
     <div className="bg-white min-h-screen pb-20 printable-area text-livspace-dark">
       {/* Action Bar */}
-      <div className="bg-white border-b print:hidden sticky top-16 z-40 shadow-sm">
-        <div className="container py-3 flex items-center justify-between">
-          <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-bold text-livspace-gray-500 hover:text-livspace-dark transition-colors">
+      <div className="bg-white border-b print:hidden sticky top-14 md:top-16 z-40 shadow-sm">
+        <div className="container py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-bold text-livspace-gray-500 hover:text-livspace-dark transition-colors touch-target">
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
           
-          <div className="flex gap-2">
-            <a href={getEmailLink(request, designer?.email, assigner?.email)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-livspace-blue text-white rounded-lg text-xs font-bold hover:bg-livspace-blue/80 transition-colors shadow-sm">
-              <Mail className="w-3.5 h-3.5" /> Send via Gmail
+          <div className="flex flex-wrap gap-2">
+            <a href={getEmailLink(request, designer?.email, assigner?.email)} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-livspace-blue text-white rounded-xl text-xs font-bold hover:bg-livspace-blue/80 transition-all shadow-sm touch-target">
+              <Mail className="w-4 h-4" /> Gmail
             </a>
-            <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-livspace-dark text-white rounded-lg text-xs font-bold hover:bg-black transition-colors">
-              <Printer className="w-3.5 h-3.5" /> Print Project
+            <button onClick={() => window.print()} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-livspace-dark text-white rounded-xl text-xs font-bold hover:bg-black transition-all touch-target">
+              <Printer className="w-4 h-4" /> Print
             </button>
-            <button onClick={handleDownloadCSV} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
-              <FileDown className="w-3.5 h-3.5" /> Export Data
+            <button onClick={handleDownloadCSV} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all shadow-sm touch-target">
+              <FileDown className="w-4 h-4" /> CSV
             </button>
+            {currentUser?.role === 'validation_lead' && (
+              <button 
+                onClick={() => window.location.href = `/quotation/${requestId}`}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 touch-target animate-pulse hover:animate-none"
+              >
+                <Stars className="w-4 h-4" /> Finalise & Create Quote
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -209,23 +219,23 @@ function ReportPageContent() {
         
         {/* REPORT HEADER */}
         <div className="border-b-4 border-livspace-dark pb-6">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="bg-livspace-orange text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded">Official</div>
-                <h2 className="text-livspace-gray-400 font-bold uppercase tracking-tighter text-sm">Site Validation Ecosystem</h2>
+                <div className="bg-livspace-orange text-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md">Official</div>
+                <h2 className="text-livspace-gray-400 font-bold uppercase tracking-tight text-xs md:text-sm">Site Validation Ecosystem</h2>
               </div>
-              <h1 className="text-4xl font-black tracking-tight">SITE VALIDATION REPORT</h1>
-              <div className="mt-2 flex items-center gap-4 text-[10px] font-bold text-livspace-gray-400 uppercase">
-                <span className="flex items-center gap-1 bg-livspace-gray-100 px-2 py-0.5 rounded text-livspace-dark">
+              <h1 className="text-2xl md:text-4xl font-black tracking-tight text-livspace-dark leading-tight md:leading-normal">SITE VALIDATION REPORT</h1>
+              <div className="mt-2 flex items-center gap-3 text-[10px] md:text-xs font-bold text-livspace-gray-400 uppercase">
+                <span className="flex items-center gap-1 bg-livspace-gray-50 px-2 py-0.5 rounded text-livspace-dark">
                   <Clock className="w-3 h-3" /> v{request.version || 1}
                 </span>
-                <span>Last Updated: {formatDateTime(request.updated_at)}</span>
+                <span>{formatDateTime(request.updated_at).split(',')[0]}</span>
               </div>
             </div>
-            <div className="text-right">
-               <p className="text-[10px] uppercase font-black text-livspace-gray-400">Project ID</p>
-               <p className="text-2xl font-black text-livspace-blue">{request.pid}</p>
+            <div className="md:text-right bg-livspace-blue/5 p-4 rounded-2xl border border-livspace-blue/10 w-full md:w-auto">
+               <p className="text-[10px] uppercase font-black text-livspace-gray-400 mb-1">Project ID</p>
+               <p className="text-xl md:text-2xl font-black text-livspace-blue leading-none">{request.pid}</p>
             </div>
           </div>
         </div>
@@ -250,24 +260,24 @@ function ReportPageContent() {
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <Stars className="w-5 h-5 text-livspace-orange fill-livspace-orange" />
-            <h3 className="text-lg font-black text-livspace-dark uppercase tracking-tight">✨ AI-Powered Insights</h3>
+            <h3 className="text-base md:text-lg font-black text-livspace-dark uppercase tracking-tight">✨ AI Insights</h3>
           </div>
-          <div className="bg-gradient-to-br from-livspace-blue/5 to-white border border-livspace-blue/20 rounded-2xl p-6 relative group">
+          <div className="bg-gradient-to-br from-livspace-blue/5 to-white border border-livspace-blue/20 rounded-2xl p-5 md:p-6 relative group">
             <textarea
               value={manualInsight}
               onChange={(e) => setManualInsight(e.target.value)}
               placeholder="Magic happens here..."
-              rows={4}
-              className="w-full bg-transparent border-none text-sm font-medium text-livspace-gray-700 leading-relaxed outline-none resize-none print:hidden"
+              rows={5}
+              className="w-full bg-transparent border-none text-xs md:text-sm font-bold text-livspace-gray-700 leading-relaxed outline-none resize-none print:hidden"
             />
             <div className="hidden print:block text-sm text-livspace-gray-800 leading-relaxed font-bold whitespace-pre-wrap">
               {manualInsight}
             </div>
             <button 
               onClick={handleSaveInsights}
-              className="absolute bottom-4 right-4 bg-livspace-blue text-white px-3 py-1.5 rounded-lg text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
+              className="absolute bottom-4 right-4 bg-livspace-blue text-white px-3 py-1.5 rounded-xl text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity print:hidden shadow-lg shadow-livspace-blue/20"
             >
-              Update Insights
+              Update
             </button>
           </div>
         </section>
@@ -352,14 +362,14 @@ function ReportPageContent() {
         </section>
 
         {/* TEAM INFO */}
-        <div className="grid grid-cols-2 gap-6 pt-10 border-t border-livspace-gray-100">
-           <div>
-              <p className="text-[10px] font-black uppercase text-livspace-gray-400">Validation Lead</p>
-              <p className="text-sm font-black mt-1 text-livspace-dark underline decoration-livspace-orange decoration-2 underline-offset-4">{assignee?.full_name || "Unassigned"}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10 border-t border-livspace-gray-100">
+           <div className="bg-livspace-gray-50 p-4 rounded-2xl border border-livspace-gray-100">
+              <p className="text-[10px] font-black uppercase text-livspace-gray-400 mb-1">Validation Lead</p>
+              <p className="text-sm font-black text-livspace-blue underline decoration-livspace-orange decoration-2 underline-offset-4">{assignee?.full_name || "Unassigned"}</p>
            </div>
-           <div className="text-right">
-              <p className="text-[10px] font-black uppercase text-livspace-gray-400">Validation Manager</p>
-              <p className="text-sm font-black mt-1 text-livspace-dark">{assigner?.full_name || "N/A"}</p>
+           <div className="bg-livspace-gray-50 p-4 rounded-2xl border border-livspace-gray-100 md:text-right">
+              <p className="text-[10px] font-black uppercase text-livspace-gray-400 mb-1">Validation Manager</p>
+              <p className="text-sm font-black text-livspace-dark">{assigner?.full_name || "N/A"}</p>
            </div>
         </div>
 

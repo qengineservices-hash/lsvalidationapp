@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useQuoteStore } from "@/stores/useQuoteStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Plus, AlertTriangle, ShieldX, PackageX, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, AlertTriangle, ShieldAlert, Package, ArrowLeft, Home } from "lucide-react";
 import BuilderLayout from "@/components/quotation/BuilderLayout";
 import Link from "next/link";
+import { isPendingVmApproval } from "@/lib/quotation";
 
-export default function QuotationPage({ params }: { params: { requestId: string } }) {
-  const { requestId } = params;
+function QuotationPageContent({ requestId }: { requestId: string }) {
   const store = useQuoteStore();
   const supabase = createClient();
   const { currentUser: authUser } = useAuthStore();
@@ -19,11 +19,7 @@ export default function QuotationPage({ params }: { params: { requestId: string 
   const [valData, setValData] = useState<any>(null);
   const [existingQuoteId, setExistingQuoteId] = useState<string | null>(null);
   
-  // Landing Create Form State
   const [creating, setCreating] = useState(false);
-  const [stage, setStage] = useState("Booking Stage");
-  
-  // Edge case flags
   const [notFinalised, setNotFinalised] = useState(false);
   const [noMrcForCity, setNoMrcForCity] = useState(false);
   const [cityName, setCityName] = useState("");
@@ -33,103 +29,111 @@ export default function QuotationPage({ params }: { params: { requestId: string 
   useEffect(() => {
     async function loadInitialData() {
       try {
-        // Fallback to Zustand store if Supabase Auth is slow or unsynced
-        let user = (await supabase.auth.getUser()).data.user;
-        const currentUserId = user?.id || authUser?.id;
+        console.log("[QuotationPage] Initializing for Request ID:", requestId);
+        
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        const currentUserId = supabaseUser?.id || authUser?.id;
 
-        if (!currentUserId) throw new Error("Please log in again to access the Quotation Engine.");
+        if (!currentUserId) {
+          throw new Error("Authentication required. Your session may have expired.");
+        }
 
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", currentUserId).single();
-        const role = profile?.role || authUser?.role;
+        // Fetch user info from app_users for the most accurate role
+        const { data: appUser } = await supabase.from("app_users").select("*").eq("id", currentUserId).maybeSingle();
+        const userRole = appUser?.role || authUser?.role;
+        console.log("[QuotationPage] Current User:", currentUserId, "Role:", userRole);
 
         // Load validation request
-        const { data: vReq } = await supabase
+        const { data: vReqRow, error: vReqError } = await supabase
           .from("app_validation_requests")
-          .select("data")
+          .select("*")
           .eq("id", requestId)
           .single();
 
-        if (!vReq) throw new Error("Validation request not found.");
-        const details = vReq.data.formData?.project || {};
+        if (vReqError) {
+          console.error("[QuotationPage] DB Error fetching request:", vReqError);
+          throw new Error(`Project data could not be retrieved. (Error: ${vReqError.message})`);
+        }
         
-        // Load the actual AppUser to get vm_id assigned
-        const assignedVl = vReq.data.assigned_to;
-        const assignedVm = vReq.data.assigned_by; // Assuming this maps to vm
-        const createdBy = vReq.data.requested_by;
-        
-        const isAdmin = role === "admin" || role === "super_admin";
-        const isVL = currentUserId === assignedVl;
-        const isVM = currentUserId === assignedVm;
-        const isCreator = currentUserId === createdBy;
+        const requestData = vReqRow?.data || {};
+        setValData(requestData);
 
-        if (!isAdmin && !isVL && !isVM && !isCreator) {
-           throw new Error("You do not have permission to view this quotation.");
+        // Permissions Check
+        const isAdmin = ["admin", "super_admin"].includes(userRole || "");
+        const isVM = userRole === "validation_manager";
+        
+        // Match IDs exactly
+        const isAssignedVL = String(requestData.assigned_to) === String(currentUserId);
+        const isAssignedVM = String(requestData.assigned_by) === String(currentUserId);
+        const isRequestingDesigner = String(requestData.requested_by) === String(currentUserId);
+
+        console.log("[QuotationPage] Permission Flags:", {
+          isAdmin,
+          isVM,
+          isAssignedVL,
+          isAssignedVM,
+          isRequestingDesigner,
+          data_assigned_to: requestData.assigned_to,
+          data_requested_by: requestData.requested_by,
+          current_uid: currentUserId
+        });
+
+        // Check if project exists but is not finalized
+        const valStatus = requestData.status;
+        const completedStatuses = ["report_generated", "validation_done", "quote_generated", "payment_confirmed", "gfc_requested", "published"];
+        
+        if (!isAdmin && !isVM && !isAssignedVL && !isAssignedVM && !isRequestingDesigner) {
+           console.warn("[QuotationPage] Access Denied for user", currentUserId);
+           setIsForbidden(true);
+           setLoading(false);
+           return;
         }
 
-        setValData(vReq.data);
-
-        // Fetch Designer Name
-        if (vReq.data.requested_by) {
+        if (requestData.requested_by) {
           const { data: designerUser } = await supabase
             .from("app_users")
             .select("full_name")
-            .eq("id", vReq.data.requested_by)
+            .eq("id", requestData.requested_by)
             .maybeSingle();
           setDesignerName(designerUser?.full_name || "N/A");
         }
 
-        // GUARD: Validation not finalised
-        const valStatus = vReq.data.status;
-        if (valStatus !== "report_generated" && valStatus !== "validation_done" && valStatus !== "quote_generated" && valStatus !== "payment_confirmed") {
+        if (!completedStatuses.includes(valStatus)) {
           setNotFinalised(true);
           setLoading(false);
           return;
         }
 
-        // Load city name and check MRC availability (common for both new and existing)
-        const quoteCityId = vReq.data.city_id;
-        if (quoteCityId) {
-          const { data: cityRecord } = await supabase.from("app_cities").select("name").eq("id", quoteCityId).maybeSingle();
-          setCityName(cityRecord?.name || quoteCityId);
+        const cityId = requestData.city_id;
+        if (cityId) {
+          const { data: cityRec } = await supabase.from("app_cities").select("name").eq("id", cityId).maybeSingle();
+          setCityName(cityRec?.name || "Selected City");
 
-          const { data: mrcItems } = await supabase
-            .from("mrc_items")
-            .select("id")
-            .eq("city_id", quoteCityId)
-            .eq("is_active", true)
-            .limit(1);
-          
-          if (!mrcItems || mrcItems.length === 0) {
-            setNoMrcForCity(true);
-          }
+          const { data: mrcExists } = await supabase.from("mrc_items").select("id").eq("city_id", cityId).eq("is_active", true).limit(1);
+          if (!mrcExists || mrcExists.length === 0) setNoMrcForCity(true);
         }
 
-        // Check if quote exists
-        const { data: qData } = await supabase
+        // Check for existing quote
+        const { data: quoteRec } = await supabase
           .from("quotes")
           .select("id, status, created_by")
           .eq("validation_request_id", requestId)
           .maybeSingle();
 
-        if (qData) {
-          // GUARD: VL tries to access a quote they didn't create
-          if (!isAdmin && !isVM && qData.created_by !== currentUserId) {
-            setIsForbidden(true);
-            setLoading(false);
-            return;
-          }
-
-          // GUARD: Quote exists but is NOT draft → redirect to summary
-          if (qData.status !== "draft") {
+        if (quoteRec) {
+          console.log("[QuotationPage] Existing Quote:", quoteRec.id, "Status:", quoteRec.status);
+          const editableStatuses = ["draft", "pending_vm_review", "pending_vm_approval", "pending_nm_approval", "vm_approved", "sent_to_designer", "payment_confirmed"];
+          if (!editableStatuses.includes(quoteRec.status)) {
             window.location.href = `/quotation/${requestId}/summary`;
             return;
           }
 
-          setExistingQuoteId(qData.id);
-          await store.fetchQuote(qData.id);
+          setExistingQuoteId(quoteRec.id);
+          await store.fetchQuote(quoteRec.id);
         }
 
       } catch (err: any) {
+        console.error("[QuotationPage] Initialization Failed:", err);
         setAuthError(err.message);
       } finally {
         setLoading(false);
@@ -137,11 +141,10 @@ export default function QuotationPage({ params }: { params: { requestId: string 
     }
     loadInitialData();
 
-    // Cleanup: reset store when navigating away
     return () => {
       useQuoteStore.setState({ currentQuote: null, lineItems: [], loading: false, error: null });
     };
-  }, [requestId, supabase]);
+  }, [requestId, supabase, authUser]);
 
   const handleCreateQuote = async () => {
     setCreating(true);
@@ -153,15 +156,13 @@ export default function QuotationPage({ params }: { params: { requestId: string 
           validation_request_id: requestId,
           project_id: valData?.pid || "UNKNOWN",
           city_id: valData?.city_id,
-          stage: stage,
-          vm_id: valData?.assigned_by, // link to VM from validation req
+          vm_id: valData?.assigned_by,
           user_id: authUser?.id
         }),
       });
 
       if (!res.ok) throw new Error(await res.text());
       const newQuote = await res.json();
-      
       setExistingQuoteId(newQuote.id);
       await store.fetchQuote(newQuote.id);
     } catch (err: any) {
@@ -175,8 +176,8 @@ export default function QuotationPage({ params }: { params: { requestId: string 
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-          <p className="text-sm font-medium text-slate-500 animate-pulse">Loading Quotation Engine...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-secondary" />
+          <p className="text-sm font-medium text-slate-500 animate-pulse">Initializing Quotation Engine...</p>
         </div>
       </div>
     );
@@ -184,16 +185,27 @@ export default function QuotationPage({ params }: { params: { requestId: string 
 
   if (authError || store.error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 p-6">
-        <div className="bg-red-50 text-red-700 p-8 rounded-xl max-w-md w-full border border-red-200">
+      <div className="flex h-screen items-center justify-center p-6 bg-slate-50">
+        <div className="bg-red-50 text-red-700 p-8 rounded-3xl max-w-md w-full border border-red-200 text-center shadow-xl">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
           <h2 className="text-lg font-bold mb-2">Notice</h2>
-          <p>{authError || store.error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold"
-          >
-            Retry
-          </button>
+          <p className="text-sm leading-relaxed">{authError || store.error}</p>
+          <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-700 transition-colors">Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isForbidden) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-red-100 shadow-2xl p-10 text-center">
+          <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-6" />
+          <h2 className="text-2xl font-black text-secondary mb-3">Access Denied</h2>
+          <p className="text-slate-500 mb-8 leading-relaxed">You do not have permission to access this project. If you are the assigned designer or lead, please contact your manager.</p>
+          <Link href="/" className="inline-flex items-center gap-2 px-8 py-3.5 bg-secondary text-white rounded-2xl font-bold shadow-lg shadow-secondary/20 hover:bg-secondary-hover transition-all">
+            <Home className="w-4 h-4" /> Back to Dashboard
+          </Link>
         </div>
       </div>
     );
@@ -205,7 +217,7 @@ export default function QuotationPage({ params }: { params: { requestId: string 
         {noMrcForCity && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center gap-2 text-sm text-amber-800">
             <AlertTriangle className="w-4 h-4" />
-            <span><strong>Warning:</strong> No MRC items found for {cityName}. Only Non-MRC items can be added. Contact Admin to upload the rate card.</span>
+            <span><strong>Warning:</strong> No MRC items found for {cityName}. Contact Admin.</span>
           </div>
         )}
         <BuilderLayout validationData={valData} designerNameProp={designerName} />
@@ -213,111 +225,65 @@ export default function QuotationPage({ params }: { params: { requestId: string 
     );
   }
 
-  // EDGE CASE: Validation not finalised
   if (notFinalised) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Validation Not Complete</h2>
-          <p className="text-sm text-slate-500 mb-6">Site validation must be finalised before creating a quotation.</p>
-          <Link
-            href={`/validation-lead/validate/${requestId}`}
-            className="inline-flex items-center px-6 py-3 bg-livspace-blue text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Go to Validation
+      <div className="min-h-screen flex items-center justify-center p-8 bg-slate-50">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-100 shadow-xl p-10 text-center">
+          <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-6" />
+          <h2 className="text-2xl font-black text-secondary mb-3">Validation Not Ready</h2>
+          <p className="text-slate-500 mb-8 leading-relaxed">The site validation must be finalised by the lead before you can start the quotation process.</p>
+          <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
         </div>
       </div>
     );
   }
-
-  // EDGE CASE: 403 Forbidden
-  if (isForbidden) {
-    return (
-      <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center">
-          <ShieldX className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Access Denied</h2>
-          <p className="text-sm text-slate-500 mb-6">You do not have permission to access this quotation. Only the VL who created it, their VM, or an Admin can view it.</p>
-          <Link href="/validation-lead" className="text-sm font-bold text-livspace-blue hover:underline">
-            ← Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // CREATE LANDING SCREEN
-  const project = {
-    pid: valData?.pid || "N/A",
-    customerName: valData?.customer_name || "N/A",
-    city: cityName || "N/A",
-    status: valData?.status || "N/A"
-  };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
-      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-8 pb-6 border-b border-slate-100 bg-slate-50/50">
-          <h1 className="text-2xl font-bold text-slate-800">Start New Quotation</h1>
-          <p className="text-slate-500 mt-1">Based on Site Validation Request</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+      <div className="max-w-2xl w-full bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+        <div className="p-10 pb-8 bg-slate-50/50 border-b border-slate-100">
+          <h1 className="text-3xl font-black text-secondary">Start Quotation</h1>
+          <p className="text-slate-500 mt-2">Initialize the estimation process for this project.</p>
         </div>
-        
-        <div className="p-8 space-y-8">
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
-            <h3 className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-3">Project Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-slate-500">Project ID</p>
-                <p className="font-semibold text-slate-800 uppercase tracking-tight">{project.pid}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Customer</p>
-                <p className="font-medium text-slate-800">{project.customerName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">City</p>
-                <p className="font-medium text-slate-800">{project.city}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Validation Status</p>
-                <span className="inline-flex bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm font-medium">
-                  {project.status}
-                </span>
-              </div>
+        <div className="p-10 space-y-10">
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Project ID</p>
+              <p className="text-lg font-bold text-secondary uppercase">{valData?.pid}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Customer</p>
+              <p className="text-lg font-bold text-secondary">{valData?.customer_name}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">City</p>
+              <p className="text-lg font-bold text-secondary">{cityName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Designer</p>
+              <p className="text-lg font-bold text-secondary">{designerName}</p>
             </div>
           </div>
-
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-slate-700">Project Stage</label>
-            <div className="flex space-x-4">
-              {['Booking Stage', 'Design Stage'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStage(s)}
-                  className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all font-medium ${
-                    stage === s 
-                      ? 'border-blue-600 bg-blue-50 text-blue-700' 
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <button
             onClick={handleCreateQuote}
             disabled={creating}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 rounded-xl shadow-sm transition-all flex justify-center items-center space-x-2 disabled:opacity-70"
+            className="w-full bg-secondary text-white font-black py-5 rounded-2xl shadow-xl shadow-secondary/20 hover:bg-secondary-hover transition-all flex justify-center items-center gap-3 disabled:opacity-50"
           >
-            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-            <span>{creating ? 'Creating Quotation...' : 'Create Quotation'}</span>
+            {creating ? <Loader2 className="w-6 h-6 animate-spin" /> : <Plus className="w-6 h-6" />}
+            {creating ? 'CREATING...' : 'CREATE QUOTATION'}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function QuotationPage({ params }: { params: { requestId: string } }) {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-secondary" /></div>}>
+      <QuotationPageContent requestId={params.requestId} />
+    </Suspense>
   );
 }

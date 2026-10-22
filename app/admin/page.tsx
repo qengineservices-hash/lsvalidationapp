@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore, ROLE_LABELS, type UserRole } from "@/stores/useAuthStore";
 import { useAppDataStore, type City } from "@/stores/useAppDataStore";
@@ -21,8 +21,10 @@ import {
   ChevronDown,
   Menu,
   Settings,
-  Library
+  Library,
+  Loader2
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
@@ -357,6 +359,7 @@ function UsersTab() {
               <option value="designer">Designer</option>
               <option value="validation_lead">Validation Lead</option>
               <option value="validation_manager">Validation Manager</option>
+              <option value="design_associate">Design Associate</option>
               <option value="admin">Admin</option>
             </select>
             <select
@@ -418,6 +421,7 @@ function UsersTab() {
                         <option value="designer">Designer</option>
                         <option value="validation_lead">Validation Lead</option>
                         <option value="validation_manager">Validation Manager</option>
+                        <option value="design_associate">Design Associate</option>
                         <option value="admin">Admin</option>
                       </select>
                     </td>
@@ -628,83 +632,187 @@ function VlCityTab() {
   );
 }
 
-// ===================================================
-// ALL REQUESTS TAB
-// ===================================================
 function AllRequestsTab() {
-  const { validationRequests } = useAppDataStore();
+  const { validationRequests, cities, getUserById } = useAppDataStore();
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [quoteMap, setQuoteMap] = useState<Record<string, any>>({});
+  const [quoteFilter, setQuoteFilter] = useState("all");
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function fetchQuotes() {
+      const { data, error } = await supabase
+        .from("quotes")
+        .select(`
+          id, 
+          validation_request_id, 
+          status, 
+          total, 
+          version, 
+          designer_quote_access (
+            access_token,
+            created_at,
+            first_accessed_at,
+            payment_confirmed_at
+          )
+        `);
+      
+      if (!error && data) {
+        const qMap: Record<string, any> = {};
+        data.forEach(q => {
+          const access = q.designer_quote_access?.[0];
+          qMap[q.validation_request_id] = {
+            id: q.id,
+            status: q.status,
+            total: q.total,
+            version: q.version,
+            access_token: access?.access_token,
+            sent_to_designer_at: access?.created_at,
+            first_accessed_at: access?.first_accessed_at,
+            payment_confirmed_at: access?.payment_confirmed_at
+          };
+        });
+        setQuoteMap(qMap);
+      }
+    }
+    fetchQuotes();
+  }, [supabase]);
+
+  const filteredRequests = validationRequests.filter(req => {
+    if (quoteFilter === "all") return true;
+    const quote = quoteMap[req.id];
+    if (quoteFilter === "no_quote") return !quote;
+    if (quoteFilter === "draft") return quote?.status === "draft";
+    if (quoteFilter === "pending_approval") return ["pending_vm_review", "pending_vm_approval", "pending_nm_approval", "vm_approved"].includes(quote?.status);
+    if (quoteFilter === "sent") return quote?.status === "sent_to_designer";
+    if (quoteFilter === "payment_confirmed") return quote?.status === "payment_confirmed";
+    return true;
+  });
+
+  // Summary Metrics
+  const totalGMV = Object.values(quoteMap)
+    .filter(q => q.status === "payment_confirmed")
+    .reduce((sum, q) => sum + Number(q.total || 0), 0);
+
+  const activeValidations = validationRequests.filter(r => ["assigned", "in_progress", "on_hold"].includes(r.status)).length;
+  const quotesInProgress = Object.values(quoteMap).filter(q => ["draft", "pending_vm_review", "pending_vm_approval", "pending_nm_approval", "vm_approved"].includes(q.status)).length;
+  const paymentsConfirmed = Object.values(quoteMap).filter(q => ["payment_confirmed", "locked", "gfc_requested"].includes(q.status)).length;
+  const activeGfcs = Object.values(quoteMap).filter(q => q.status === "gfc_requested").length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-livspace-dark">
-          Tracker ({validationRequests.length})
-        </h3>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode("card")}
-            className={cn(
-              "p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
-              viewMode === "card" 
-                ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
-                : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          
-          <button
-            onClick={() => setViewMode("table")}
-            className={cn(
-              "p-2 px-4 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
-              viewMode === "table" 
-                ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
-                : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
-            )}
-          >
-            <Table className="w-4 h-4" />
-            <span>Tracker</span>
-          </button>
-
-          <button
-            onClick={() => {
-              const mappedData = validationRequests.map(req => ({
-                city: useAppDataStore.getState().cities.find(c => c.id === req.city_id)?.name || "—",
-                pid: req.pid,
-                request_id: req.request_number || req.id,
-                customer: req.customer_name,
-                designer: useAppDataStore.getState().getUserById(req.requested_by)?.full_name || "—",
-                manager: req.assigned_by ? useAppDataStore.getState().getUserById(req.assigned_by)?.full_name || "—" : "—",
-                lead: req.assigned_to ? useAppDataStore.getState().getUserById(req.assigned_to)?.full_name || "—" : "—",
-                created_at: new Date(req.created_at).toLocaleDateString(),
-                scheduled: req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "—",
-                status: req.status === "report_generated" ? "Report Generated" : req.status === "validation_done" ? "Validation Completed" : "In Progress",
-                version: req.version || 1,
-                last_edited: req.last_edited_at ? new Date(req.last_edited_at).toLocaleDateString() : "—",
-                report_link: req.status === "report_generated" ? `${window.location.origin}/reports/${req.id}` : "—"
-              }));
-              exportGlobalTracker(mappedData, `Global_Tracker_${new Date().toISOString().split('T')[0]}.csv`);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
-          >
-            <FileDown className="w-3.5 h-3.5" /> Download CSV
-          </button>
+    <div className="space-y-6">
+      {/* Summary Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Projects</p>
+           <p className="text-xl font-black text-secondary">{validationRequests.length}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Validations</p>
+           <p className="text-xl font-black text-blue-600">{activeValidations}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Quotes in Progress</p>
+           <p className="text-xl font-black text-amber-600">{quotesInProgress}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active GFCs</p>
+           <p className="text-xl font-black text-purple-600">{activeGfcs}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Payments Confirmed</p>
+           <p className="text-xl font-black text-emerald-600">{paymentsConfirmed}</p>
+        </div>
+        <div className="bg-secondary p-4 rounded-xl border border-secondary shadow-lg shadow-secondary/20 text-white col-span-2 md:col-span-1">
+           <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1">Total GMV</p>
+           <p className="text-xl font-black text-accent">₹{(totalGMV / 100000).toFixed(1)}L</p>
         </div>
       </div>
-      
-      {viewMode === "card" ? (
-        <StatusBuckets 
-          requests={validationRequests} 
-          showAssignee 
-          getActionHref={(r) => {
-            const hasReport = r.status === "report_generated" || r.status === "validation_done";
-            return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
-          }}
-        />
-      ) : (
-        <TableView requests={validationRequests} />
-      )}
+
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h3 className="font-bold text-livspace-dark shrink-0">
+              Tracker ({filteredRequests.length})
+            </h3>
+            
+            {/* Quote Status Filter */}
+            <select 
+              value={quoteFilter}
+              onChange={(e) => setQuoteFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="all">All Quote Status</option>
+              <option value="no_quote">No Quote</option>
+              <option value="draft">Draft</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="sent">Sent</option>
+              <option value="payment_confirmed">Payment Confirmed</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex bg-slate-100 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode("card")}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === "card" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400"
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === "table" ? "bg-white shadow-sm text-livspace-dark" : "text-livspace-gray-400"
+                )}
+              >
+                <Table className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                const mappedData = filteredRequests.map(req => {
+                  const quote = quoteMap[req.id];
+                  return {
+                    city: cities.find(c => c.id === req.city_id)?.name || "—",
+                    pid: req.pid,
+                    request_id: req.request_number || req.id,
+                    customer: req.customer_name,
+                    status: req.status,
+                    quote_status: quote?.status || "No Quote",
+                    quote_total: quote?.total || 0,
+                    quote_version: quote?.version || 0,
+                    created_at: req.created_at
+                  };
+                });
+                exportGlobalTracker(mappedData, `Admin_Tracker_${new Date().toISOString().split('T')[0]}.csv`);
+              }}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all flex items-center gap-2"
+            >
+              <FileDown className="w-3.5 h-3.5" /> 
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
+          </div>
+        </div>
+        
+        {viewMode === "card" ? (
+          <StatusBuckets 
+            requests={filteredRequests} 
+            showAssignee 
+            quoteMap={quoteMap}
+            getActionHref={(r) => {
+              const hasReport = r.status === "report_generated" || r.status === "validation_done";
+              return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
+            }}
+          />
+        ) : (
+          <TableView requests={filteredRequests} quoteMap={quoteMap} />
+        )}
+      </div>
     </div>
   );
 }

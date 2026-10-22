@@ -1,13 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2, Download, CheckCircle, AlertCircle, Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface QuoteViewData {
   accessRecord: any;
   quote: any;
   lineItems: any[];
   validationDetails: any;
+}
+
+async function getErrorMessage(res: Response) {
+  try {
+    const text = await res.text();
+    if (!text) return res.statusText || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(text);
+      return j?.error || j?.message || text;
+    } catch {
+      return text;
+    }
+  } catch {
+    return res.statusText || `HTTP ${res.status}`;
+  }
 }
 
 export default function QuoteViewPage({ searchParams }: { searchParams: { token?: string } }) {
@@ -24,6 +41,7 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
   const [paymentName, setPaymentName] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentChecked, setPaymentChecked] = useState(false);
+  const [komDate, setKomDate] = useState("");
   const [honeypot, setHoneypot] = useState(""); // Bot trap - should remain empty
 
   useEffect(() => {
@@ -37,8 +55,7 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
       try {
         const res = await fetch(`/api/quote-view/${token}`);
         if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || "Failed to load quotation.");
+          throw new Error(await getErrorMessage(res));
         }
         const data = await res.json();
         setData(data);
@@ -57,7 +74,17 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
 
   const handleConfirmPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentChecked) return;
+    if (!paymentChecked || !komDate) return;
+    
+    const kom = new Date(komDate);
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() + 3);
+    minDate.setHours(0,0,0,0);
+    
+    if (isNaN(kom.getTime()) || kom < minDate) {
+      alert("KOM Date must be at least 3 days from today.");
+      return;
+    }
     
     // Honeypot check: if the hidden field has a value, it's a bot
     if (honeypot) {
@@ -71,12 +98,11 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
       const res = await fetch(`/api/quote-view/${token}/confirm-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmed_by: paymentName, notes: paymentNotes })
+        body: JSON.stringify({ confirmed_by: paymentName, notes: paymentNotes, kom_date: komDate })
       });
       
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to confirm payment.");
+        throw new Error(await getErrorMessage(res));
       }
       
       const resData = await res.json();
@@ -89,14 +115,41 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
           accessRecord: {
             ...prev.accessRecord,
             payment_confirmed_at: resData.confirmed_at,
-            payment_confirmed_by_name: paymentName
-          }
+            payment_confirmed_by_name: paymentName,
+          },
+          quote: {
+            ...prev.quote,
+            status: "payment_confirmed",
+            payment_confirmed_at: resData.confirmed_at,
+            kom_date: komDate,
+            payment_reference: paymentNotes || null,
+          },
         };
       });
     } catch (err: any) {
       alert("Error: " + err.message);
     } finally {
       setConfirmingPayment(false);
+    }
+  };
+
+  const handleRequestGfc = async () => {
+    if (!data || !data.quote) return;
+    try {
+      const res = await fetch(`/api/quotation/${data.quote.id}/request-gfc`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to request GFC drawings.");
+      
+      const resData = await res.json();
+      setData(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          quote: { ...prev.quote, gfc_requested_at: new Date().toISOString() }
+        };
+      });
+      alert("GFC Drawings requested successfully! The VL will assign a Design Associate soon.");
+    } catch (err: any) {
+      alert("Error: " + err.message);
     }
   };
 
@@ -140,7 +193,7 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
   });
 
   // Calculate Advance Payment
-  const advancePaymentAmount = quote.total * 0.10;
+  const advancePaymentAmount = quote.total * 0.50;
   const isPaid = !!accessRecord.payment_confirmed_at;
 
   // Render Summary Tab calculations
@@ -163,8 +216,8 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
       
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 print:static print:border-none print:shadow-none">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center mb-6">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-6">
+          <div className="flex justify-between items-center mb-4 md:mb-6">
             <div className="flex items-center space-x-3">
               <div className="bg-slate-800 p-2 rounded-lg print:border print:border-slate-800">
                 <Building2 className="w-5 h-5 text-white" />
@@ -177,34 +230,34 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
             
             <button 
               onClick={handlePrint}
-              className="print:hidden flex items-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors"
+              className="print:hidden flex items-center px-3 md:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs md:text-sm font-bold transition-all touch-target"
             >
-              <Download className="w-4 h-4 mr-2" /> Download PDF
+              <Download className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Download PDF</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100 print:bg-white print:border-slate-300 print:text-black">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 bg-slate-50 p-3 md:p-4 rounded-2xl border border-slate-100 print:bg-white print:border-slate-300 print:text-black">
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Quote No.</p>
-              <p className="font-bold text-slate-800">{quote.quote_number}</p>
+              <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-black mb-1">Quote No.</p>
+              <p className="font-bold text-slate-800 text-xs md:text-sm">{quote.quote_number}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Project ID</p>
-              <p className="font-bold text-slate-800 uppercase tracking-tight">{validationDetails.pid}</p>
+              <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-black mb-1">PID</p>
+              <p className="font-bold text-slate-800 uppercase tracking-tight text-xs md:text-sm">{validationDetails.pid}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Customer</p>
-              <p className="font-bold text-slate-800">{validationDetails.customer_name}</p>
+              <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-black mb-1">Customer</p>
+              <p className="font-bold text-slate-800 text-xs md:text-sm truncate">{validationDetails.customer_name}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Sent Date</p>
-              <p className="font-bold text-slate-800">{new Date(quote.sent_to_designer_at || quote.created_at).toLocaleDateString()}</p>
+              <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-widest font-black mb-1">Sent Date</p>
+              <p className="font-bold text-slate-800 text-xs md:text-sm">{new Date(quote.sent_to_designer_at || quote.created_at).toLocaleDateString()}</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8">
         
         {/* Tabs (Hidden on Print) */}
         <div className="flex space-x-6 border-b border-slate-200 mb-8 print:hidden">
@@ -237,42 +290,59 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
                     <p className="font-bold text-slate-800">₹{Math.round(roomTotal).toLocaleString('en-IN')}</p>
                   </div>
                   
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap min-w-[800px] print:min-w-full print:text-[11px]">
-                      <thead className="bg-white border-b border-slate-100 text-slate-500 font-semibold print:text-black">
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap min-w-full">
+                      <thead className="bg-white border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                         <tr>
-                          <th className="px-6 py-3 w-16">Type</th>
-                          <th className="px-6 py-3 w-32">Service</th>
-                          <th className="px-6 py-3 min-w-[200px] whitespace-normal">Description</th>
-                          <th className="px-6 py-3 w-20 text-center">Unit</th>
-                          <th className="px-6 py-3 w-24 text-right">Qty</th>
-                          <th className="px-6 py-3 w-24 text-right">Rate</th>
-                          <th className="px-6 py-3 w-32 text-right">Amount</th>
+                          <th className="px-6 py-4 w-16">Type</th>
+                          <th className="px-6 py-4 w-32">Service</th>
+                          <th className="px-6 py-4">Description</th>
+                          <th className="px-6 py-4 w-24 text-right">Amount</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50 print:divide-slate-200">
+                      <tbody className="divide-y divide-slate-50">
                         {roomItems.map(item => (
-                          <tr key={item.id} className="text-slate-700 hover:bg-slate-50/50 transition-colors print:text-black">
+                          <tr key={item.id} className="text-slate-700 hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4">
-                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase ${item.item_type === 'mrc' ? 'bg-blue-50 text-blue-700 print:border print:border-blue-700' : 'bg-orange-50 text-orange-700 print:border print:border-orange-700'}`}>
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase ${item.item_type === 'mrc' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
                                 {item.item_type}
                               </span>
                             </td>
-                            <td className="px-6 py-4 font-medium">{item.service_on || '-'}</td>
-                            <td className="px-6 py-4 whitespace-normal min-w-[200px]">
-                              <p className="font-bold text-slate-800 text-[13px] print:text-[11px]">{item.item_name}</p>
-                              {item.description && (
-                                <p className="text-slate-500 text-xs mt-1 leading-relaxed print:text-[10px]">{item.description}</p>
-                              )}
+                            <td className="px-6 py-4 font-bold text-xs">{item.service_on || '-'}</td>
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-slate-800 text-[13px]">{item.item_name}</p>
+                              {item.description && <p className="text-slate-400 text-[11px] mt-0.5">{item.description}</p>}
                             </td>
-                            <td className="px-6 py-4 text-center font-medium">{item.unit}</td>
-                            <td className="px-6 py-4 text-right">{parseFloat(item.quantity).toFixed(2)}</td>
-                            <td className="px-6 py-4 text-right">₹{parseFloat(item.unit_price).toLocaleString('en-IN')}</td>
-                            <td className="px-6 py-4 text-right font-bold text-slate-900">₹{parseFloat(item.amount).toLocaleString('en-IN')}</td>
+                            <td className="px-6 py-4 text-right font-black text-slate-900">₹{parseFloat(item.amount).toLocaleString('en-IN')}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Mobile Card-List View */}
+                  <div className="md:hidden divide-y divide-slate-50">
+                    {roomItems.map(item => (
+                      <div key={item.id} className="p-4 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                            item.item_type === 'mrc' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
+                          )}>
+                            {item.item_type}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">{item.service_on || '-'}</span>
+                        </div>
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <p className="font-bold text-slate-800 text-xs leading-snug">{item.item_name}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{parseFloat(item.quantity).toFixed(0)} {item.unit} @ ₹{parseFloat(item.unit_price).toLocaleString('en-IN')}</p>
+                          </div>
+                          <p className="font-black text-slate-900 text-sm">₹{parseFloat(item.amount).toLocaleString('en-IN')}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </section>
               );
@@ -342,21 +412,47 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
                 <CheckCircle className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <h3 className="font-bold text-emerald-800 text-lg mb-1">Payment Confirmed</h3>
-                  <p className="text-emerald-700">10% Advance Payment confirmed by {accessRecord.payment_confirmed_by_name} on {new Date(accessRecord.payment_confirmed_at).toLocaleString()}.</p>
-                  <p className="text-sm text-emerald-600 mt-2">The Validation Lead has been notified to proceed with formal delivery constraints.</p>
+                  <p className="text-emerald-700">50% Advance Payment confirmed by <span className="font-bold">{accessRecord.payment_confirmed_by_name}</span> on {new Date(accessRecord.payment_confirmed_at).toLocaleString()}.</p>
+                  {accessRecord.kom_date && <p className="text-emerald-700 mt-1 font-bold tracking-tight">KOM Date: {new Date(accessRecord.kom_date).toLocaleDateString()}</p>}
+                  {accessRecord.payment_notes && <p className="text-emerald-700 mt-1 text-xs">Reference: {accessRecord.payment_notes}</p>}
+                  <p className="text-sm text-emerald-600 mt-3">The Validation Lead has been notified to proceed with formal delivery constraints.</p>
+                  <div className="mt-4 pt-4 border-t border-emerald-200">
+                    {data.quote.gfc_requested_at ? (
+                      <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        GFC Requested — awaiting assignment
+                      </div>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={handleRequestGfc}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors shadow-sm"
+                        >
+                          Request GFC Drawings
+                        </button>
+                        <p className="text-[10px] text-emerald-600 mt-2 opacity-80">GFC drawing request unlocks assignment workflow.</p>
+                        <Link 
+                          href="/designer?tab=quotes"
+                          className="mt-4 inline-flex items-center text-xs font-bold text-emerald-700 hover:underline gap-1"
+                        >
+                          View on Quotations tab →
+                        </Link>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden max-w-2xl mx-auto">
                 <div className="bg-blue-600 p-6 text-white">
                   <h3 className="font-bold text-xl mb-1">Confirm Advance Payment</h3>
-                  <p className="text-blue-100 text-sm">To lock this quotation and proceed, confirm collection of the required initial payment.</p>
+                  <p className="text-blue-100 text-sm">Confirm that 50% advance payment has been received and the customer has explicitly agreed to proceed with this scope of work.</p>
                 </div>
                 <form onSubmit={handleConfirmPayment} className="p-8 space-y-6">
                   
                   <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-slate-500 font-medium tracking-wide uppercase">Required Advance (10%)</p>
+                      <p className="text-sm text-slate-500 font-medium tracking-wide uppercase">Required Advance (50%)</p>
                     </div>
                     <p className="text-2xl font-black text-blue-700">₹{Math.round(advancePaymentAmount).toLocaleString('en-IN')}</p>
                   </div>
@@ -369,7 +465,19 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
                       value={paymentName}
                       onChange={e => setPaymentName(e.target.value)}
                       placeholder="e.g. John Doe (Designer)"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow text-slate-800"
+                      className="mobile-input px-4 py-3 bg-slate-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Expected project start date (KOM Date) *</label>
+                    <input 
+                      required 
+                      type="date" 
+                      value={komDate}
+                      onChange={e => setKomDate(e.target.value)}
+                      className="mobile-input px-4 py-3 bg-slate-50"
+                      min={new Date(new Date().setDate(new Date().getDate() + 3)).toISOString().split('T')[0]}
                     />
                   </div>
 
@@ -379,8 +487,8 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
                       rows={2}
                       value={paymentNotes}
                       onChange={e => setPaymentNotes(e.target.value)}
-                      placeholder="UTR number, transaction ID, or general notes..."
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow text-slate-800 resize-none"
+                      placeholder="UTR number, transaction ID, etc."
+                      className="mobile-input px-4 py-3 bg-slate-50 resize-none"
                     />
                   </div>
 
@@ -410,16 +518,17 @@ export default function QuoteViewPage({ searchParams }: { searchParams: { token?
                       <CheckCircle className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
                     </div>
                     <span className="text-sm text-slate-600 group-hover:text-slate-800 transition-colors leading-relaxed">
-                      I confirm that the advance payment has been firmly collected and the customer has explicitly agreed to proceed with this scope of work.
+                      I confirm that 50% advance payment has been collected and the customer has explicitly agreed to proceed with this scope of work as quoted.
                     </span>
                   </label>
 
                   <button
                     type="submit"
-                    disabled={confirmingPayment || !paymentChecked || !paymentName.trim()}
+                    disabled={confirmingPayment || !paymentChecked || !paymentName.trim() || !komDate}
                     className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg shadow-slate-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center h-14"
                   >
-                    {confirmingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : "Confirm Payment & Lock Quote"}
+                    {confirmingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                     komDate ? `Confirm Payment — Work starts on ${new Date(komDate).toLocaleDateString()}` : "Confirm Payment"}
                   </button>
 
                 </form>

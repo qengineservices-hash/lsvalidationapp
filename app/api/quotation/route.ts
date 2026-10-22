@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const body = await request.json();
-    const { validation_request_id, project_id, city_id, stage, vm_id, user_id } = body;
+    const { validation_request_id, project_id, city_id, vm_id, user_id } = body;
 
     const currentUserId = user?.id || user_id;
 
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized: No user identity found" }, { status: 401 });
     }
 
-    if (!validation_request_id || !stage) {
+    if (!validation_request_id) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -27,7 +29,6 @@ export async function POST(request: Request) {
         validation_request_id,
         project_id,
         city_id,
-        stage,
         vm_id,
         created_by: currentUserId,
         status: "draft"
@@ -38,10 +39,14 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     // UPDATE: Set the validation request status to 'quote_generated'
-    await supabase
-      .from("app_validation_requests")
-      .update({ status: "quote_generated" })
-      .eq("id", validation_request_id);
+    const { data: vReq } = await supabase.from("app_validation_requests").select("data").eq("id", validation_request_id).single();
+    if (vReq && vReq.data) {
+      const updatedData = { ...vReq.data, status: "quote_generated", updated_at: new Date().toISOString() };
+      await supabase
+        .from("app_validation_requests")
+        .update({ data: updatedData, updated_at: new Date().toISOString() })
+        .eq("id", validation_request_id);
+    }
 
     return NextResponse.json(data);
   } catch (error: any) {

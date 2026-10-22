@@ -14,6 +14,10 @@ node_modules/
 .env.test.local
 .env.production.local
 .env.*.local
+credentials.json
+token.json
+client_secret*.json
+*credentials*.json
 
 # ===========================
 # Build Output
@@ -66,3 +70,47 @@ Thumbs.db
 # Testing
 # ===========================
 coverage/
+
+# ===========================
+# Local Scratch & Data Files
+# ===========================
+*.xlsx
+*.py
+*.tsv
+*.txt
+scratch/
+.next-stale-*/
+analyze_*.js
+remediate_*.js
+test_*.js
+inspect_*.js
+patch_*.js
+apply_*.js
+dump_*.js
+list_*.js
+match_*.js
+parse_*.js
+fix_*.js
+evaluate_*.js
+compare_*.js
+check_*.js
+summarize_*.js
+validate_*.js
+verify_*.js
+print_*.js
+boq_analysis.js
+generate_*.js
+deep_analysis.js
+audit_*.py
+finalize_*.py
+update_*.py
+sheets_tool.js
+sheets_tool.py
+pid_governance_dashboard.html
+Design_Library_Pilot_Reference_Drawings.pdf
+Parametric docs/
+AGENTS.md
+GEMINI.md
+TASK_TRACKER_GUARDRAILS.md
+
+
