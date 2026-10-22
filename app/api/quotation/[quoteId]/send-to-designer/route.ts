@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(
   request: Request,
   { params }: { params: { quoteId: string } }
@@ -68,6 +70,11 @@ export async function POST(
       }
     }
 
+    await supabase
+      .from("designer_quote_access")
+      .delete()
+      .eq("quote_id", quoteId);
+
     const { error: accessErr } = await supabase
       .from("designer_quote_access")
       .insert({
@@ -80,12 +87,21 @@ export async function POST(
     if (accessErr) throw accessErr;
 
     // 3. Update Status
+    const { data: { user } } = await supabase.auth.getUser();
+    const updatePayload: any = {
+      status: "sent_to_designer",
+      sent_to_designer_at: new Date().toISOString()
+    };
+
+    // If it's a high NM quote and being approved by reviewer now
+    if (quote.non_mrc_percentage > 30 && !quote.nm_approved_by) {
+      updatePayload.nm_approved_by = user?.id || null;
+      updatePayload.nm_approved_at = new Date().toISOString();
+    }
+
     const { error: updateErr } = await supabase
       .from("quotes")
-      .update({
-        status: "sent_to_designer",
-        sent_to_designer_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq("id", quoteId);
 
     if (updateErr) throw updateErr;
@@ -107,7 +123,7 @@ export async function POST(
       Total Quote Value: ₹${quote.total}
       
       Please click the link below to view the full quotation and confirm 
-      the 10% advance payment to proceed:
+      the 50% advance payment to proceed:
       
       [View Quotation & Confirm Payment] → ${magicLink}
       

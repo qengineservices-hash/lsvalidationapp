@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export interface Quote {
   id: string;
@@ -6,7 +7,6 @@ export interface Quote {
   validation_request_id: string;
   project_id: string;
   city_id: string; // Adjusted to string
-  stage: string;
   status: string;
   mrc_subtotal: number;
   non_mrc_subtotal: number;
@@ -14,6 +14,9 @@ export interface Quote {
   non_mrc_percentage: number;
   vm_id: string;
   created_by: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface QuoteLineItem {
@@ -26,6 +29,7 @@ export interface QuoteLineItem {
   mrc_item_id?: string;
   item_name: string;
   description?: string;
+  brand_specification?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -46,7 +50,9 @@ interface QuoteState {
   addLineItem: (item: Partial<QuoteLineItem>) => Promise<void>;
   updateLineItem: (itemId: string, updates: Partial<QuoteLineItem>) => Promise<void>;
   deleteLineItem: (itemId: string) => Promise<void>;
-  submitForReview: (quoteId: string) => Promise<void>;
+  submitForApproval: (quoteId: string) => Promise<void>;
+  sendToDesigner: (quoteId: string) => Promise<void>;
+  saveDraft: (quoteId: string) => Promise<void>;
   
   // Local optimistic update without immediate DB sync (for debounce)
   optimisticUpdateLineItem: (itemId: string, updates: Partial<QuoteLineItem>) => void;
@@ -74,10 +80,13 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
 
   addLineItem: async (item: Partial<QuoteLineItem>) => {
     try {
+      const payload = { ...item };
+      delete payload.amount;
+      
       const res = await fetch("/api/quotation/line-items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to add item");
       const newItem = await res.json();
@@ -116,10 +125,13 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
       // Set optimistically first
       get().optimisticUpdateLineItem(itemId, updates);
 
+      const payload = { ...updates };
+      delete payload.amount;
+
       const res = await fetch(`/api/quotation/line-items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(payload),
       });
       
       if (!res.ok) throw new Error("Failed to update item");
@@ -154,13 +166,52 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
     }
   },
 
-  submitForReview: async (quoteId: string) => {
+  submitForApproval: async (quoteId: string) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`/api/quotation/${quoteId}/submit-for-review`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to submit");
-      const updatedQuote = await res.json();
+      const currentUserId = useAuthStore.getState().currentUser?.id;
+      const res = await fetch(`/api/quotation/${quoteId}/status`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending_vm_approval", user_id: currentUserId })
+      });
+      const responseData = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(responseData?.error || "Failed to submit");
+      const updatedQuote = responseData;
       set({ currentQuote: updatedQuote });
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  sendToDesigner: async (quoteId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const currentUserId = useAuthStore.getState().currentUser?.id;
+      const res = await fetch(`/api/quotation/${quoteId}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: currentUserId })
+      });
+      const responseData = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(responseData?.error || "Failed to send quote");
+      const updatedQuote = responseData;
+      set({ currentQuote: updatedQuote });
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  saveDraft: async (quoteId: string) => {
+    set({ loading: true, error: null });
+    try {
+      await get().fetchQuote(quoteId);
     } catch (err: any) {
       set({ error: err.message });
       throw err;

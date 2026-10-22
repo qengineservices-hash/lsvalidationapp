@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Printer, ArrowLeft, CheckCircle, Clock, Send, FileText, Eye, CreditCard, Lock } from "lucide-react";
+import { Loader2, Printer, ArrowLeft, CheckCircle, Clock, Send, FileText, Eye, CreditCard, Lock, Download } from "lucide-react";
 import { formatDateTime } from "@/lib/formatters";
 import Link from "next/link";
+import { exportQuoteToCSV } from "@/lib/quote-csv-export";
+import { useAppDataStore } from "@/stores/useAppDataStore";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface TimelineStep {
   label: string;
@@ -16,6 +19,7 @@ interface TimelineStep {
 export default function QuoteSummaryPage({ params }: { params: { requestId: string } }) {
   const { requestId } = params;
   const supabase = createClient();
+  const { cities } = useAppDataStore();
   
   const [loading, setLoading] = useState(true);
   const [quote, setQuote] = useState<any>(null);
@@ -127,9 +131,16 @@ export default function QuoteSummaryPage({ params }: { params: { requestId: stri
       <div className="bg-white border-b border-slate-200 shadow-sm print:shadow-none">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/validation-lead" className="p-2 hover:bg-slate-100 rounded-lg transition-colors print:hidden">
+            <button 
+              onClick={() => {
+                const role = useAuthStore.getState().currentUser?.role;
+                const path = role === 'designer' ? '/designer' : (role === 'validation_manager' ? '/manager' : '/validation-lead');
+                window.location.href = `${path}?tab=quotations`;
+              }} 
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors print:hidden"
+            >
               <ArrowLeft className="w-5 h-5 text-slate-600" />
-            </Link>
+            </button>
             <div>
               <h1 className="text-xl font-bold text-slate-800">Quote Summary</h1>
               <p className="text-sm text-slate-500">{quote.quote_number} · PID: {quote.project_id}</p>
@@ -253,7 +264,7 @@ export default function QuoteSummaryPage({ params }: { params: { requestId: stri
                     </td>
                     <td className="px-3 py-2 text-xs text-right font-medium">{item.quantity} {item.unit}</td>
                     <td className="px-3 py-2 text-xs text-right">₹{Number(item.unit_price).toLocaleString('en-IN')}</td>
-                    <td className="px-3 py-2 text-xs text-right font-bold">₹{Math.round(Number(item.amount)).toLocaleString('en-IN')}</td>
+                    <td className="px-3 py-2 text-xs text-right font-bold">₹{Math.round(Number(item.quantity) * Number(item.unit_price)).toLocaleString('en-IN')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -274,6 +285,30 @@ export default function QuoteSummaryPage({ params }: { params: { requestId: stri
                       <p className="text-xs font-bold text-slate-700">{v.action || "Snapshot"}</p>
                       <p className="text-[10px] text-slate-400">{formatDateTime(v.created_at)}</p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <button 
+                        onClick={() => {
+                           const snap = v.snapshot_data;
+                           if (snap && snap.quote) {
+                              const items = snap.lineItems || snap.line_items || [];
+                              const city = cities.find(c => c.id === snap.quote.city_id)?.name || "City";
+                              exportQuoteToCSV(snap.quote, items, { city });
+                           }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                     >
+                        <Download className="w-3.5 h-3.5" /> CSV
+                     </button>
+                     <button 
+                        onClick={() => {
+                           // For PDF, we'll alert that they should use the Preview function to Print
+                           alert("To download PDF of a historical version, please click Preview first (To be implemented). For now, use current version PDF.");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                     >
+                        <Printer className="w-3.5 h-3.5" /> PDF
+                     </button>
                   </div>
                 </div>
               ))}

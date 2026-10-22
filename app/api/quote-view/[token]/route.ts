@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: Request,
   { params }: { params: { token: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = createAdminClient();
     const { token } = params;
 
     // 1. Validate Token and check expiration
@@ -21,9 +23,9 @@ export async function GET(
     }
 
     const now = new Date();
-    const expiresAt = new Date(accessRecord.token_expires_at);
+    const expiresAt = accessRecord.token_expires_at ? new Date(accessRecord.token_expires_at) : null;
 
-    if (now > expiresAt) {
+    if (expiresAt && now > expiresAt) {
       return NextResponse.json({ error: "This link has expired. Please request a new one." }, { status: 410 });
     }
 

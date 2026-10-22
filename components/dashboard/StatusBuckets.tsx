@@ -20,7 +20,7 @@ const BUCKETS: { key: RequestStatus; label: string; emoji: string; statuses?: Re
   { key: "assigned", label: "Assigned", emoji: "📋" },
   { key: "in_progress", label: "Ongoing", emoji: "🔄" },
   { key: "on_hold", label: "On Hold", emoji: "⏸️" },
-  { key: "report_generated", label: "Completed", emoji: "✅", statuses: ["validation_done", "report_generated"] },
+  { key: "report_generated", label: "Completed", emoji: "✅", statuses: ["validation_done", "report_generated", "quote_generated", "payment_confirmed", "gfc_requested"] },
 ];
 
 export default function StatusBuckets({
@@ -37,7 +37,10 @@ export default function StatusBuckets({
 
   // Auto-focus the first bucket that has data on initial load
   if (!hasInitialized && requests.length > 0) {
-    const firstNonEmpty = bucketsToUse.find(b => requests.some(r => r.status === b.key));
+    const firstNonEmpty = bucketsToUse.find(b => requests.some(r => {
+      if (b.statuses) return b.statuses.includes(r.status);
+      return r.status === b.key;
+    }));
     if (firstNonEmpty && firstNonEmpty.key !== activeBucket) {
       setActiveBucket(firstNonEmpty.key);
     }
@@ -53,7 +56,7 @@ export default function StatusBuckets({
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="scroll-tabs">
         {bucketsToUse.map((bucket) => {
           const count = requests.filter((r) => {
             if (bucket.statuses) return bucket.statuses.includes(r.status);
@@ -64,10 +67,10 @@ export default function StatusBuckets({
               key={bucket.key}
               onClick={() => setActiveBucket(bucket.key)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
+                "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all touch-target",
                 activeBucket === bucket.key
-                  ? "bg-livspace-blue text-white"
-                  : "bg-white text-livspace-gray-600 border border-livspace-gray-200 hover:border-livspace-blue"
+                  ? "bg-primary text-white shadow-md shadow-primary/20"
+                  : "bg-white text-brand-muted border border-slate-100 hover:border-primary"
               )}
             >
               <span>{bucket.emoji}</span>
@@ -75,10 +78,10 @@ export default function StatusBuckets({
               {count > 0 && (
                 <span
                   className={cn(
-                    "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
                     activeBucket === bucket.key
                       ? "bg-white/20 text-white"
-                      : "bg-livspace-gray-100 text-livspace-gray-600"
+                      : "bg-brand-surface text-brand-muted"
                   )}
                 >
                   {count}

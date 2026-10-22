@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: Request,
   { params }: { params: { quoteId: string } }
@@ -19,7 +21,8 @@ export async function GET(
       .single();
 
     if (quoteError) {
-      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+      console.error("Fetch Quote DB Error:", quoteError);
+      return NextResponse.json({ error: `Quote not found or access denied: ${quoteError.message}` }, { status: 404 });
     }
 
     // Fetch line items

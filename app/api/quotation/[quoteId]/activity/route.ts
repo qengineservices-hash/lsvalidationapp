@@ -83,7 +83,7 @@ export async function GET(
         activity.push({
           timestamp: access.payment_confirmed_at,
           action: "Payment Confirmed",
-          detail: `10% advance payment confirmed by ${access.payment_confirmed_by_name || "Designer"}.`,
+          detail: `50% advance payment confirmed by ${access.payment_confirmed_by_name || "Designer"}.`,
           type: "payment"
         });
       }

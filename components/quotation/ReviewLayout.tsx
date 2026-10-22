@@ -7,6 +7,7 @@ import { useQuoteStore } from "@/stores/useQuoteStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { AlertCircle, Loader2, CheckCircle, XCircle, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getValidationRoomOrder, isPendingVmApproval } from "@/lib/quotation";
 
 export default function ReviewLayout({ validationData }: { validationData: any }) {
   const store = useQuoteStore();
@@ -20,14 +21,15 @@ export default function ReviewLayout({ validationData }: { validationData: any }
 
   if (!quote) return null;
 
-  const validationStoreData = validationData?.validation_data || {};
-  const roomOrder: string[] = validationStoreData.roomOrder || [];
+  const roomOrder = getValidationRoomOrder(validationData);
   const allRooms = ["Full Home", ...roomOrder];
   
   const designerName = validationData?.customer_name_designer || "Designer Name";
   const actualPid = quote.project_id === "UNKNOWN" ? validationData?.pid : quote.project_id;
 
   const isHighNm = quote.non_mrc_percentage > 30;
+  const isHighValue = quote.total > 300000;
+  const nmLimitValue = (quote.total * 0.3).toLocaleString('en-IN');
 
   const handleApproveSend = async () => {
     setLoadingAction("approve_send");
@@ -90,13 +92,27 @@ export default function ReviewLayout({ validationData }: { validationData: any }
       
       {/* Sticky Top Action Bar */}
       <div className="bg-white border-b border-slate-200 p-4 shadow-sm z-50 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Quote Review: {quote.quote_number}</h1>
-          <p className="text-sm text-slate-500">Status: <span className="font-semibold text-slate-800 uppercase">{quote.status.replace(/_/g, ' ')}</span></p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-bold">Quote Review: {quote.quote_number}</h1>
+            <p className="text-sm text-slate-500">Status: <span className="font-semibold text-slate-800 uppercase">{quote.status.replace(/_/g, ' ')}</span></p>
+          </div>
+          <div className="flex gap-2">
+            {isHighValue && (
+              <span className="text-[10px] font-black bg-purple-100 text-purple-700 px-3 py-1 rounded-full uppercase tracking-wider border border-purple-200">
+                Requires VM Approval ( {">"}₹3L )
+              </span>
+            )}
+            {isHighNm && (
+              <span className="text-[10px] font-black bg-orange-100 text-orange-700 px-3 py-1 rounded-full uppercase tracking-wider border border-orange-200">
+                NM Exception Required ( {">"}₹{nmLimitValue} )
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex space-x-3 items-center">
-          {(quote.status === 'pending_vm_review' || quote.status === 'vm_approved') && (
+          {(isPendingVmApproval(quote.status) || quote.status === 'vm_approved') && (
             <>
               {(quote.status === 'vm_approved' || !isHighNm) ? (
                 <button
@@ -105,7 +121,7 @@ export default function ReviewLayout({ validationData }: { validationData: any }
                   className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center"
                 >
                   {loadingAction === "approve_send" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                  {quote.status === 'vm_approved' ? "Send to Designer" : "Approve & Send to Designer"}
+                  Approve & Send to Designer
                 </button>
               ) : (
                 <button
@@ -172,7 +188,7 @@ export default function ReviewLayout({ validationData }: { validationData: any }
                <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
                <p className="text-sm text-red-800 font-medium">
                  ⚠️ Non-MRC items exceed 30% of quote total (currently {quote.non_mrc_percentage.toFixed(1)}%). 
-                 {quote.status === 'pending_vm_review' ? " Requires NM Approval exception." : ""}
+                 {isPendingVmApproval(quote.status) ? " Requires VM approval." : ""}
                </p>
              </div>
           )}

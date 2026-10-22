@@ -12,26 +12,55 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem",
+        lg: "2rem",
+      },
       screens: {
         "2xl": "1400px",
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Gilroy", "Inter", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        primary: { 
+          DEFAULT: '#EB595F', 
+          hover: '#d44f55', 
+          light: '#fdf2f2',
+          foreground: "#FFFFFF"
+        },
+        secondary: { 
+          DEFAULT: '#603E5E', 
+          hover: '#4e3249', 
+          light: '#f3eef3',
+          foreground: "#FFFFFF"
+        },
+        accent: { 
+          DEFAULT: '#ECD3CD', 
+          hover: '#e0c4bc',
+          foreground: '#603E5E'
+        },
+        brand: {
+          surface: '#F8F4F3',
+          dark: '#1A1A2E',
+          muted: '#6B7280'
+        },
         livspace: {
           orange: {
-            DEFAULT: "#FF6B35",
-            hover: "#E85A24",
-            light: "#FFF0EB",
+            DEFAULT: "#EB595F", // Use primary
+            hover: "#d44f55",
+            light: "#fdf2f2",
           },
-          dark: "#1A1A1A",
-          blue: "#1e3d8f", // From your HTML
+          dark: "#1A1A2E",
+          blue: "#603E5E", // Use secondary
           gray: {
             800: "#2D2D2D",
             600: "#6B6B6B",
@@ -49,14 +78,6 @@ const config: Config = {
           p1: "#F39C12",
           p2: "#27AE60",
         },
-        primary: {
-          DEFAULT: "#FF6B35", // Livspace Orange
-          foreground: "#FFFFFF",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -64,10 +85,6 @@ const config: Config = {
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

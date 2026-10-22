@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type UserRole = "admin" | "designer" | "validation_manager" | "validation_lead";
+export type UserRole = "admin" | "super_admin" | "designer" | "validation_manager" | "validation_lead" | "design_associate";
 
 export interface AppUser {
   id: string;
@@ -28,17 +28,21 @@ export function isValidLivspaceEmail(email: string): boolean {
 // Role display labels
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
+  super_admin: "Super Admin",
   designer: "Designer",
   validation_manager: "Validation Manager",
   validation_lead: "Validation Lead",
+  design_associate: "Design Associate",
 };
 
 // Role-specific dashboard paths
 export const ROLE_DASHBOARD: Record<UserRole, string> = {
   admin: "/admin",
+  super_admin: "/admin",
   designer: "/designer",
   validation_manager: "/manager",
   validation_lead: "/validation-lead",
+  design_associate: "/design-associate",
 };
 
 export const useAuthStore = create<AuthState>()(

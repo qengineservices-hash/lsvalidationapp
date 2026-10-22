@@ -4,221 +4,211 @@ import { useAuthStore, ROLE_DASHBOARD } from "@/stores/useAuthStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import StatusBuckets from "@/components/dashboard/StatusBuckets";
 import Link from "next/link";
-import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table } from "lucide-react";
+import { PlusCircle, FileText, MapPin, FileDown, LayoutGrid, Table, ArrowRight, Loader2 } from "lucide-react";
 import TableView from "@/components/dashboard/TableView";
 import { exportGlobalTracker } from "@/lib/exportTracker";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import QuoteReviewsTab from "@/components/dashboard/QuoteReviewsTab";
+import { formatDateTime } from "@/lib/formatters";
+import { createClient } from "@/lib/supabase/client";
+import GfcBuckets from "@/components/gfc/GfcBuckets";
 
-export default function ManagerDashboard() {
+function GfcManagementTab() {
+  const searchParams = useSearchParams();
+  const { users } = useAppDataStore();
+  const [assigningId, setAssigningId] = useState<string | null>(searchParams.get("assign"));
+  const [daId, setDaId] = useState("");
+  const [vmNotes, setVmNotes] = useState("");
+  const supabase = createClient();
+
+  const DAs = users.filter(u => u.role === 'design_associate' && u.is_active);
+
+  const handleAssign = async () => {
+    if (!daId) return;
+    const { error } = await supabase
+      .from("gfc_requests")
+      .update({
+        assigned_da_id: daId,
+        assigned_by: useAuthStore.getState().currentUser?.id,
+        assigned_at: new Date().toISOString(),
+        vm_notes: vmNotes,
+        status: 'assigned'
+      })
+      .eq("id", assigningId);
+
+    if (!error) {
+       alert("DA assigned successfully.");
+       window.location.href = "/manager/dashboard?tab=gfc_management";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <GfcBuckets isManager />
+
+      {/* Assignment Modal */}
+      {assigningId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-2xl scale-110">
+              <h3 className="text-xl font-bold text-secondary">Assign Design Associate</h3>
+              <div className="space-y-4">
+                 <select 
+                    value={daId} 
+                    onChange={e => setDaId(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold outline-none"
+                 >
+                    <option value="">Select DA...</option>
+                    {DAs.map(da => <option key={da.id} value={da.id}>{da.full_name}</option>)}
+                 </select>
+                 <textarea 
+                    placeholder="Notes for DA (optional)..." 
+                    value={vmNotes}
+                    onChange={e => setVmNotes(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border rounded-xl text-sm h-24 resize-none"
+                 />
+              </div>
+              <div className="flex gap-2 pt-2">
+                 <button onClick={() => setAssigningId(null)} className="flex-1 py-3 text-sm font-bold text-slate-400 hover:bg-slate-50 rounded-xl">Cancel</button>
+                 <button onClick={handleAssign} className="flex-1 py-3 bg-secondary text-white rounded-xl text-sm font-bold shadow-lg shadow-secondary/20">Confirm Assignment</button>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManagerDashboardContent() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { cities, validationRequests, getCitiesForUser, getVlsForVm, assignVlToRequest, getUserById } = useAppDataStore();
 
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
-  const [topTab, setTopTab] = useState<"validations" | "quote_reviews">("validations");
+  const initialTab = (searchParams.get("tab") as any) || "validations";
+  const [topTab, setTopTab] = useState<"validations" | "quote_reviews" | "gfc_management">(initialTab);
 
-  // Safety: If Lead/Designer accidentally lands here, bounce them
   useEffect(() => {
     if (currentUser && currentUser.role !== "validation_manager" && currentUser.role !== "admin") {
       router.replace(ROLE_DASHBOARD[currentUser.role]);
     }
   }, [currentUser, router]);
 
-  if (!currentUser || (currentUser.role !== "validation_manager" && currentUser.role !== "admin")) return null;
+  const availableVLs = getVlsForVm(currentUser?.id || "");
+  const myCities = getCitiesForUser(currentUser?.id || "");
+  const cityOptions = myCities.length > 0 ? myCities : cities;
 
-  const availableVLs = getVlsForVm(currentUser.id);
-
-  // Cities tagged to this VM
-  const myCities = getCitiesForUser(currentUser.id);
-  const cityOptions = myCities.length > 0 ? myCities : cities; // Fallback to all if not tagged
-
-  // Filter requests by city labels assigned to this VM (used to enforce role-based visibility)
   const filteredRequests = useMemo(() => {
     let base = validationRequests;
-    if (currentUser.role === "validation_manager") {
+    if (currentUser?.role === "validation_manager") {
       const cityIds = myCities.map(c => c.id);
       if (cityIds.length > 0) {
         base = base.filter(r => cityIds.includes(r.city_id));
       }
     }
-    
     if (selectedCity === "all") return base;
     return base.filter((r) => r.city_id === selectedCity);
-  }, [validationRequests, currentUser.role, myCities, selectedCity]);
+  }, [validationRequests, currentUser?.role, myCities, selectedCity]);
+
+  if (!currentUser || (currentUser.role !== "validation_manager" && currentUser.role !== "admin")) return null;
 
   return (
-    <div className="container py-8 space-y-8 max-w-4xl">
-      {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="container py-6 md:py-8 space-y-8 md:space-y-12 max-w-4xl">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-livspace-dark">
-            Hello, <span className="text-livspace-orange">{currentUser.full_name}</span>
+          <h1 className="text-xl md:text-2xl font-bold text-secondary">
+            Hello, <span className="text-primary">{currentUser.full_name}</span>
           </h1>
-          <p className="text-sm text-livspace-gray-500">
-            Manage validation requests, assign leads, and track progress.
-          </p>
+          <p className="text-xs md:text-sm text-brand-muted">Manage validation requests, assign leads, and track progress.</p>
         </div>
-        <Link
-          href="/validation-requests/new"
-          className="btn-primary px-6 py-3 inline-flex items-center gap-2 font-bold text-sm rounded-xl"
-        >
-          <PlusCircle className="w-5 h-5" />
-          New Request
+        <Link href="/validation-requests/new" className="btn-primary px-6 py-3 inline-flex items-center justify-center gap-2 font-bold text-sm rounded-xl w-full sm:w-auto touch-target shadow-lg shadow-primary/20">
+          <PlusCircle className="w-5 h-5" /> New Request
         </Link>
       </div>
 
-      {/* Top Level Nav */}
-      <div className="flex gap-4 border-b border-slate-200">
-        <button
-          onClick={() => setTopTab("validations")}
-          className={cn("px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "validations" ? "border-livspace-dark text-livspace-dark" : "border-transparent text-slate-500 hover:text-slate-800")}
-        >
-          Site Validations
-        </button>
-        <button
-          onClick={() => setTopTab("quote_reviews")}
-          className={cn("px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "quote_reviews" ? "border-livspace-dark text-livspace-dark" : "border-transparent text-slate-500 hover:text-slate-800")}
-        >
-          Quote Reviews
-        </button>
+      <div className="flex border-b border-slate-200">
+        <button onClick={() => setTopTab("validations")} className={cn("flex-1 px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "validations" ? "border-secondary text-secondary" : "border-transparent text-brand-muted")}>Site Validations</button>
+        <button onClick={() => setTopTab("quote_reviews")} className={cn("flex-1 px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "quote_reviews" ? "border-secondary text-secondary" : "border-transparent text-brand-muted")}>Quote Reviews</button>
+        <button onClick={() => setTopTab("gfc_management")} className={cn("flex-1 px-4 py-3 text-sm font-bold border-b-2 transition-all", topTab === "gfc_management" ? "border-secondary text-secondary" : "border-transparent text-brand-muted")}>GFC Handover</button>
       </div>
 
       {topTab === "validations" ? (
-        <>
-          {/* City Filters */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCity("all")}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all",
-            selectedCity === "all"
-              ? "bg-livspace-dark text-white"
-              : "bg-white text-livspace-gray-600 border border-livspace-gray-200 hover:border-livspace-dark"
-          )}
-        >
-          <MapPin className="w-3.5 h-3.5" />
-          All Cities
-        </button>
-        {cityOptions.map((city) => (
-          <button
-            key={city.id}
-            onClick={() => setSelectedCity(city.id)}
-            className={cn(
-              "px-3 py-2 rounded-xl text-xs font-bold transition-all",
-              selectedCity === city.id
-                ? "bg-livspace-dark text-white"
-                : "bg-white text-livspace-gray-600 border border-livspace-gray-200 hover:border-livspace-dark"
+        <div className="space-y-6">
+          <div className="scroll-tabs">
+            <button onClick={() => setSelectedCity("all")} className={cn("flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all", selectedCity === "all" ? "bg-secondary text-white shadow-md shadow-secondary/10" : "bg-white text-brand-muted border border-slate-100")}>
+              <MapPin className="w-3.5 h-3.5" /> All Cities
+            </button>
+            {cityOptions.map(city => (
+              <button key={city.id} onClick={() => setSelectedCity(city.id)} className={cn("px-4 py-2.5 rounded-xl text-xs font-bold transition-all", selectedCity === city.id ? "bg-secondary text-white shadow-md shadow-secondary/10" : "bg-white text-brand-muted border border-slate-100")}>{city.name}</button>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
+                <FileText className="w-5 h-5 text-livspace-gray-500" /> Tracker <span className="text-sm font-normal text-livspace-gray-400">({filteredRequests.length})</span>
+              </h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => {
+                  const mappedData = filteredRequests.map(req => ({
+                    city: (cities || []).find(c => c.id === req.city_id)?.name || "—",
+                    pid: req.pid,
+                    customer: req.customer_name,
+                    status: req.status,
+                    created_at: new Date(req.created_at).toLocaleDateString()
+                  }));
+                  exportGlobalTracker(mappedData, `Tracker_${new Date().toISOString().split('T')[0]}.csv`);
+                }} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all"><FileDown className="w-4 h-4" /> Download CSV</button>
+              </div>
+            </div>
+
+            {viewMode === "card" ? (
+              <StatusBuckets 
+                requests={filteredRequests} 
+                showAssignee 
+                getActionHref={(r) => {
+                  if (!r.assigned_to) return "";
+                  const hasReport = r.status === "report_generated" || r.status === "validation_done";
+                  return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
+                }}
+                renderActions={(r) => {
+                  if (r.status !== "new" && r.status !== "assigned") return null;
+                  return (
+                    <select
+                      className="w-full text-xs border border-livspace-gray-200 rounded-lg px-2 py-2 bg-white font-bold text-secondary"
+                      value={r.assigned_to || ""}
+                      onChange={(e) => e.target.value && assignVlToRequest(r.id, e.target.value, currentUser.id)}
+                    >
+                      <option value="">— Assign VL —</option>
+                      <option value={currentUser.id}>Self (Assign to Me)</option>
+                      {availableVLs.filter(vl => vl.id !== currentUser.id).map(vl => (
+                        <option key={vl.id} value={vl.id}>{vl.full_name}</option>
+                      ))}
+                    </select>
+                  );
+                }}
+              />
+            ) : (
+              <TableView requests={filteredRequests} />
             )}
-          >
-            {city.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Request Buckets */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-livspace-dark flex items-center gap-2">
-            <FileText className="w-5 h-5 text-livspace-gray-500" />
-            Tracker
-            <span className="text-sm font-normal text-livspace-gray-400">
-              ({filteredRequests.length})
-            </span>
-          </h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setViewMode("card")}
-              className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
-                viewMode === "card" 
-                  ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
-                  : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            
-            <button
-              onClick={() => setViewMode("table")}
-              className={cn(
-                "p-2 px-4 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border",
-                viewMode === "table" 
-                  ? "bg-livspace-dark text-white border-livspace-dark shadow-md" 
-                  : "bg-white text-livspace-gray-400 border-livspace-gray-200 hover:border-livspace-dark"
-              )}
-            >
-              <Table className="w-4 h-4" />
-              <span>Tracker</span>
-            </button>
-
-            <button
-              onClick={() => {
-                const mappedData = filteredRequests.map(req => ({
-                  city: (cities || []).find(c => c.id === req.city_id)?.name || "—",
-                  pid: req.pid,
-                  request_id: req.request_number || req.id,
-                  customer: req.customer_name,
-                  designer: getUserById(req.requested_by)?.full_name || "—",
-                  manager: req.assigned_by ? getUserById(req.assigned_by)?.full_name || "—" : "—",
-                  lead: req.assigned_to ? getUserById(req.assigned_to)?.full_name || "—" : "—",
-                  created_at: new Date(req.created_at).toLocaleDateString(),
-                  scheduled: req.scheduled_date ? `${req.scheduled_date} ${req.scheduled_time || ""}` : "—",
-                  status: req.status === "report_generated" ? "Report Generated" : req.status === "validation_done" ? "Validation Completed" : "In Progress",
-                  version: req.version || 1,
-                  last_edited: req.last_edited_at ? new Date(req.last_edited_at).toLocaleDateString() : "—",
-                  report_link: req.status === "report_generated" ? `${window.location.origin}/reports/${req.id}` : "—"
-                }));
-                exportGlobalTracker(mappedData, `VM_Tracker_${new Date().toISOString().split('T')[0]}.csv`);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
-            >
-              <FileDown className="w-3.5 h-3.5" /> Download CSV
-            </button>
           </div>
         </div>
-
-        {viewMode === "card" ? (
-          <StatusBuckets 
-            requests={filteredRequests} 
-            showAssignee 
-            getActionHref={(r) => {
-              const hasReport = r.status === "report_generated" || r.status === "validation_done";
-              return hasReport ? `/reports/${r.id}` : `/validation-lead/validate/${r.id}`;
-            }}
-            renderActions={(r) => {
-              if (r.status !== "new" && r.status !== "assigned") return null;
-              return (
-                <div className="flex items-center gap-2">
-                  <select
-                    className="w-full text-xs border border-livspace-gray-200 rounded-lg px-2 py-2 focus:ring-1 focus:ring-livspace-blue outline-none bg-white"
-                    value={r.assigned_to || ""}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        assignVlToRequest(r.id, e.target.value, currentUser.id);
-                      }
-                    }}
-                  >
-                    <option value="">— Assign Validation Lead —</option>
-                    {availableVLs.map(vl => (
-                      <option key={vl.id} value={vl.id}>{vl.full_name} ({vl.email})</option>
-                    ))}
-                  </select>
-                </div>
-              );
-            }}
-          />
-        ) : (
-          <TableView requests={filteredRequests} />
-        )}
-      </div>
-      </>
-      ) : (
+      ) : topTab === "quote_reviews" ? (
         <QuoteReviewsTab />
+      ) : (
+        <GfcManagementTab />
       )}
     </div>
+  );
+}
+
+export default function ManagerDashboard() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-secondary" /></div>}>
+      <ManagerDashboardContent />
+    </Suspense>
   );
 }

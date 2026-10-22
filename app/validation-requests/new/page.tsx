@@ -90,20 +90,20 @@ export default function NewValidationRequestPage() {
     setForm((f) => ({ ...f, [key]: value }));
 
   return (
-    <div className="container py-8 max-w-2xl">
-      <div className="space-y-2 mb-8">
-        <h1 className="text-2xl font-bold text-livspace-dark">
+    <div className="container py-6 md:py-8 max-w-2xl px-4 md:px-0 pb-32 md:pb-8">
+      <div className="space-y-1 mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-bold text-secondary">
           New Validation Request
         </h1>
-        <p className="text-sm text-livspace-gray-500">
+        <p className="text-xs md:text-sm text-brand-muted">
           Fill in the project details to raise a new site validation request.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* PID & Customer */}
-        <div className="bg-white border border-livspace-gray-200 rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-bold text-livspace-blue uppercase tracking-wider">
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">
             Project Details
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -115,12 +115,13 @@ export default function NewValidationRequestPage() {
                 <Hash className="absolute left-3 top-2.5 h-4 w-4 text-livspace-gray-400" />
                 <input
                   type="text"
+                  inputMode="numeric"
                   maxLength={15}
                   required
                   placeholder="Numeric up to 15 digits"
                   value={form.pid}
                   onChange={(e) => update("pid", e.target.value.replace(/\D/g, ""))}
-                  className="w-full border border-livspace-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                  className="mobile-input pl-10 pr-3 py-3"
                 />
               </div>
             </div>
@@ -137,7 +138,7 @@ export default function NewValidationRequestPage() {
                   placeholder="Aditi Sharma"
                   value={form.customer_name}
                   onChange={(e) => update("customer_name", e.target.value)}
-                  className="w-full border border-livspace-gray-200 rounded-lg pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                  className="mobile-input pl-10 pr-3 py-3"
                 />
               </div>
             </div>
@@ -147,13 +148,13 @@ export default function NewValidationRequestPage() {
                 Customer Phone *
               </label>
               <input
-                type="text"
+                type="tel"
                 required
                 maxLength={10}
                 placeholder="9876543210"
                 value={form.customer_phone}
                 onChange={(e) => update("customer_phone", e.target.value.replace(/\D/g, ""))}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="mobile-input px-4 py-3"
               />
             </div>
 
@@ -165,7 +166,7 @@ export default function NewValidationRequestPage() {
                 required
                 value={form.city_id}
                 onChange={(e) => update("city_id", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange bg-white"
+                className="mobile-input px-4 py-3 bg-white"
               >
                 <option value="">Select City</option>
                 {cities.map((c) => (
@@ -177,8 +178,8 @@ export default function NewValidationRequestPage() {
         </div>
 
         {/* Location */}
-        <div className="bg-white border border-livspace-gray-200 rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-bold text-livspace-blue uppercase tracking-wider">
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">
             Location Details
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -191,7 +192,7 @@ export default function NewValidationRequestPage() {
                 placeholder="Prestige Falcon City"
                 value={form.society_name}
                 onChange={(e) => update("society_name", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="mobile-input px-4 py-3"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
@@ -199,12 +200,12 @@ export default function NewValidationRequestPage() {
                 Full Address *
               </label>
               <textarea
-                rows={2}
+                rows={3}
                 required
                 placeholder="Full address with landmark"
                 value={form.address}
                 onChange={(e) => update("address", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange resize-none"
+                className="mobile-input px-4 py-3 resize-none"
               />
             </div>
             <div className="space-y-1.5">
@@ -216,7 +217,7 @@ export default function NewValidationRequestPage() {
                 placeholder="B-402"
                 value={form.flat_no}
                 onChange={(e) => update("flat_no", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="space-y-1.5">
@@ -228,7 +229,7 @@ export default function NewValidationRequestPage() {
                 placeholder="4th"
                 value={form.floor_no}
                 onChange={(e) => update("floor_no", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             
@@ -242,7 +243,7 @@ export default function NewValidationRequestPage() {
                 min={new Date().toISOString().split('T')[0]}
                 value={form.scheduled_date}
                 onChange={(e) => update("scheduled_date", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="space-y-1.5">
@@ -253,15 +254,15 @@ export default function NewValidationRequestPage() {
                 type="time"
                 value={form.scheduled_time}
                 onChange={(e) => update("scheduled_time", e.target.value)}
-                className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
         </div>
 
         {/* Priority & Instructions */}
-        <div className="bg-white border border-livspace-gray-200 rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-bold text-livspace-blue uppercase tracking-wider">
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">
             Priority & Notes
           </h3>
           <div className="space-y-4">
@@ -282,8 +283,8 @@ export default function NewValidationRequestPage() {
                           ? "bg-red-500 text-white border-red-500"
                           : p === "P1"
                           ? "bg-amber-500 text-white border-amber-500"
-                          : "bg-livspace-blue text-white border-livspace-blue"
-                        : "bg-white text-livspace-gray-600 border-livspace-gray-200"
+                          : "bg-secondary text-white border-secondary"
+                        : "bg-white text-brand-muted border-slate-100"
                     )}
                   >
                     {p} {p === "P0" ? "(Urgent)" : p === "P1" ? "(High)" : "(Normal)"}
@@ -309,23 +310,26 @@ export default function NewValidationRequestPage() {
 
         {/* VL Assignment (VM/Admin only) */}
         {canAssign && (
-          <div className="bg-white border border-livspace-gray-200 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-bold text-livspace-blue uppercase tracking-wider">
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-sm">
+            <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">
               Assign Validation Lead
             </h3>
             <select
               value={form.assigned_to}
               onChange={(e) => update("assigned_to", e.target.value)}
-              className="w-full border border-livspace-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-livspace-orange bg-white"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary bg-white font-bold text-secondary"
             >
               <option value="">— Assign Later —</option>
-              {availableVLs.map((vl) => (
+              {currentUser && (isVM || isAdmin) && (
+                <option value={currentUser.id} className="font-bold text-primary">Self (Assign to Me)</option>
+              )}
+              {availableVLs.filter(vl => vl.id !== currentUser.id).map((vl) => (
                 <option key={vl.id} value={vl.id}>
                   {vl.full_name} ({vl.email})
                 </option>
               ))}
             </select>
-            {availableVLs.length === 0 && (
+            {availableVLs.length === 0 && !isVM && (
               <p className="text-xs text-livspace-gray-400">
                 No VLs tagged to you. Ask admin to assign VLs from the Admin Panel.
               </p>
@@ -334,13 +338,15 @@ export default function NewValidationRequestPage() {
         )}
 
         {/* Submit */}
-        <button
-          type="submit"
-          className="w-full btn-primary h-14 text-lg font-bold flex items-center justify-center gap-2 group shadow-lg shadow-livspace-orange/20 rounded-xl"
-        >
-          <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          Submit Validation Request
-        </button>
+        <div className="md:relative fixed-bottom-bar md:bg-transparent md:border-none md:p-0">
+          <button
+            type="submit"
+            className="w-full btn-primary h-14 md:h-12 text-lg md:text-sm font-bold flex items-center justify-center gap-2 group shadow-lg shadow-primary/20 rounded-xl"
+          >
+            <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            Submit Validation Request
+          </button>
+        </div>
       </form>
     </div>
   );

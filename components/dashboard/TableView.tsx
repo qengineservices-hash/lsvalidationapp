@@ -8,7 +8,7 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
-export default function TableView({ requests }: { requests: ValidationRequest[] }) {
+export default function TableView({ requests, quoteMap }: { requests: ValidationRequest[], quoteMap?: Record<string, any> }) {
   const { cities, getUserById } = useAppDataStore();
   
   const [filters, setFilters] = useState<Record<string, string>>({
@@ -177,6 +177,15 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
             <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[150px]">
               Last Edited At
             </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[150px]">
+              Quote Status
+            </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[100px] text-right">
+              Quote Total
+            </th>
+            <th className="px-3 py-4 border-r border-livspace-gray-200 min-w-[80px] text-center">
+              Q. Ver
+            </th>
             <th className="px-3 py-4 text-center min-w-[100px]">
               Report Link
             </th>
@@ -247,6 +256,24 @@ export default function TableView({ requests }: { requests: ValidationRequest[] 
                   </td>
                   <td className="px-3 py-3 border-r border-livspace-gray-100 text-[10px] text-livspace-gray-500">
                     {req.last_edited_at ? formatDateTime(req.last_edited_at) : "—"}
+                  </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 uppercase font-black text-[9px] tracking-widest">
+                    {quoteMap?.[req.id] ? (
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded",
+                        quoteMap[req.id].status === "payment_confirmed" ? "bg-green-600 text-white" :
+                        quoteMap[req.id].status === "sent_to_designer" ? "bg-purple-100 text-purple-700" :
+                        "bg-slate-100 text-slate-500"
+                      )}>
+                        {quoteMap[req.id].status.replace(/_/g, ' ')}
+                      </span>
+                    ) : "—"}
+                  </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 text-right font-bold text-secondary">
+                    {quoteMap?.[req.id]?.total ? `₹${Number(quoteMap[req.id].total).toLocaleString('en-IN')}` : "—"}
+                  </td>
+                  <td className="px-3 py-3 border-r border-livspace-gray-100 text-center font-bold">
+                    {quoteMap?.[req.id]?.version ? `v${quoteMap[req.id].version}` : "—"}
                   </td>
                   <td className="px-3 py-3 text-center">
                     {hasReport ? (

@@ -32,6 +32,8 @@ export interface MRCItem {
   // Optional relations useful for rules engine
   category_name?: string;
   sub_category_name?: string;
+  description?: string;
+  brand_specification?: string;
 }
 
 const round2 = (num: number): number => {
@@ -202,6 +204,49 @@ export function getAutoQuantityForAllRooms(
   }
 
   return result;
+}
+
+export interface FullHomePaintingResult {
+  totalCeilingArea: number;   // sum of all room L×W
+  totalWallArea: number;      // sum of all room 2(L+W)×H
+  totalFloorArea: number;     // sum of all room L×W
+  roomBreakdown: Array<{ roomName: string, ceiling: number, walls: number, floor: number }>;
+}
+
+/**
+ * Calculates aggregated totals across all rooms for Full Home Painting logic.
+ */
+export function calculateFullHomePaintingArea(rooms: Record<string, RoomData>): FullHomePaintingResult {
+  let totalCeilingArea = 0;
+  let totalWallArea = 0;
+  let totalFloorArea = 0;
+  const roomBreakdown: any[] = [];
+
+  for (const [roomId, roomData] of Object.entries(rooms || {})) {
+    if (roomData && roomData.measurements) {
+      const c = calculateCeilingArea(roomData.measurements);
+      const w = calculateWallArea(roomData.measurements);
+      const f = calculateFloorArea(roomData.measurements);
+      
+      totalCeilingArea += c;
+      totalWallArea += w;
+      totalFloorArea += f;
+
+      roomBreakdown.push({
+        roomName: roomData.name || roomId,
+        ceiling: c,
+        walls: w,
+        floor: f
+      });
+    }
+  }
+
+  return {
+    totalCeilingArea: round2(totalCeilingArea),
+    totalWallArea: round2(totalWallArea),
+    totalFloorArea: round2(totalFloorArea),
+    roomBreakdown
+  };
 }
 
 /**
