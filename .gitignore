@@ -105,8 +105,8 @@ audit_*.py
 finalize_*.py
 update_*.py
 sheets_tool.js
-sheets_tool.py
-pid_governance_dashboard.html
+/pid_governance_dashboard.html
+!public/pid_governance_dashboard.html
 Design_Library_Pilot_Reference_Drawings.pdf
 Parametric docs/
 AGENTS.md

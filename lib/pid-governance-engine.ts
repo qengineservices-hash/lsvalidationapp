@@ -177,6 +177,21 @@ export interface TradeSummary {
   mandatoryExecutionGate: string;
 }
 
+export interface ClubbedLineItem {
+  name: string;
+  sku: string;
+  trade: string;
+  subCategory: string;
+  unit: string;
+  quantity: number;
+  preTaxPrice: number;
+  scopeTag: 'Specialised' | 'Standard';
+  rateRuleFlag: 'Rate > ₹2k Override' | 'Standard Rate';
+  sourcingAction: string;
+  lineCount: number;
+  unitPrice: number;
+}
+
 export interface PidGovernanceSummary {
   projectId: string;
   city: string;
@@ -185,6 +200,7 @@ export interface PidGovernanceSummary {
   status: string;
   publishedAt: string;
   itemCount: number;
+  consolidatedSkuCount?: number;
   totalServicesQuote: number;
   standardScopeQuote: number;
   standardScopeSharePct: number;
@@ -204,6 +220,7 @@ export interface PidGovernanceSummary {
   commercialContingencyBuffer: string;
   trades: Record<string, TradeSummary>;
   lineItems: AuditedLineItem[];
+  clubbedLineItems?: ClubbedLineItem[];
 }
 
 export interface PortfolioGovernanceMetrics {
