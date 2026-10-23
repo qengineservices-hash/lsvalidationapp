@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PID Supply Governance Report | Livspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <!-- Top Navigation Bar -->
+  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded bg-gradient-to-tr from-rose-500 to-indigo-600 flex items-center justify-center font-black text-white text-sm">
+          LS
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-tight">PID Supply Governance & Allocation</h1>
+          <p class="text-[11px] text-slate-400">Live Inhouse Services Sourcing Matrix (2026 Data)</p>
+        </div>
+      </div>
+
+      <!-- PID Search Form -->
+      <div class="flex items-center space-x-2">
+        <div class="relative">
+          <input 
+            type="text" 
+            id="pidInput" 
+            value="<?= initialPid ?>" 
+            placeholder="Enter PID (e.g. 4019066)" 
+            class="bg-slate-800 text-white placeholder-slate-400 text-xs rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48 font-mono"
+            onkeydown="if(event.key === 'Enter') fetchReport();"
+          />
+        </div>
+        <button 
+          onclick="fetchReport()" 
+          id="btnSearch"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm flex items-center space-x-1"
+        >
+          <span>Search</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Loading State -->
+    <div id="loadingState" class="hidden py-16 text-center">
+      <div class="inline-block w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+      <p class="text-sm font-semibold text-slate-700">Loading PID Governance Report...</p>
+      <p class="text-xs text-slate-400">Querying live staging records and consolidating SKUs</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-800 text-xs">
+      <div class="font-bold mb-1">Error Loading Report</div>
+      <div id="errorMessage"></div>
+    </div>
+
+    <!-- Report Container -->
+    <div id="reportContainer" class="space-y-6">
+      <!-- Project Header Card -->
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span id="txtPidBadge" class="text-xs px-2.5 py-0.5 rounded bg-emerald-600 text-white font-mono font-bold">PID —</span>
+              <span id="txtCityBu" class="text-sm font-bold text-slate-900">—</span>
+              <span id="txtPolicyBadge" class="text-[11px] px-2 py-0.5 rounded font-semibold bg-slate-100 text-slate-800 border border-slate-200">—</span>
+            </div>
+            <div class="text-xs text-slate-500 mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+              <span>Vendor: <strong id="txtVendor" class="text-slate-700">—</strong></span>
+              <span>Quotation Lines: <strong id="txtTotalLines" class="text-slate-700 font-mono">—</strong></span>
+              <span>Consolidated SKUs: <strong id="txtClubbedCount" class="text-indigo-600 font-mono">—</strong></span>
+            </div>
+          </div>
+          <div>
+            <button 
+              onclick="exportCsv()" 
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+            >
+              Export BoQ CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIER 1: KPI SCORECARD -->
+      <div class="space-y-2">
+        <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tier 1: Financial & Policy Summary (Discrete Value Bands)</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Total Services BoQ (Bucket)</div>
+            <div class="mt-2" id="badgeTotalBoq">—</div>
+            <div class="text-[10px] text-slate-400 mt-1">Total Project Value Band</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Standard Scope (Bucket)</div>
+            <div class="mt-2" id="badgeStandardBoq">—</div>
+            <div class="text-[10px] text-slate-400 mt-1">Standard Contractor Pool</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-semibold text-rose-600 uppercase">Specialised Scope (Bucket)</div>
+            <div class="mt-2" id="badgeSpecialisedBoq">—</div>
+            <div class="text-[10px] text-slate-400 mt-1">Specialist Partner Allocation</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-[11px] font-semibold text-slate-500 uppercase">Rate &gt; ₹2k Overrides</div>
+            <div class="text-base font-bold text-slate-900 mt-1" id="txtOverridesCount">0 items</div>
+            <div class="text-[10px] text-slate-400 mt-0.5" id="txtOverridesValue">Band: Less than 25K</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIER 2: TRADE ALLOCATION MATRIX -->
+      <div class="space-y-2">
+        <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tier 2: Trade-Level Supply Allocation Matrix</h2>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-left text-xs text-slate-600 border-collapse">
+            <thead class="bg-slate-900 text-slate-200 uppercase text-[10px] font-semibold tracking-wider">
+              <tr>
+                <th class="py-2.5 px-3.5">Trade</th>
+                <th class="py-2.5 px-3 text-right">Items</th>
+                <th class="py-2.5 px-3 text-right">Total Quoted Value (Bucket)</th>
+                <th class="py-2.5 px-3 text-right">Standard Scope (Bucket)</th>
+                <th class="py-2.5 px-3 text-right text-rose-400">Specialised Scope (Bucket)</th>
+                <th class="py-2.5 px-3.5">Supply Partner Sourcing Policy</th>
+              </tr>
+            </thead>
+            <tbody id="tblTradesBody" class="divide-y divide-slate-200">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TIER 3: CONSOLIDATED SKU REGISTER -->
+      <div class="space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tier 3: Consolidated SKU Allocation Register</h2>
+            <p class="text-[11px] text-slate-400">Multi-room lines clubbed by clean SKU description. Prices reflect discrete value bands (not per-sqft rates).</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input 
+              type="text" 
+              id="txtSkuFilter" 
+              placeholder="Filter items..." 
+              oninput="filterSkuTable()"
+              class="text-xs border border-slate-300 rounded-lg px-2.5 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden max-h-[500px] overflow-y-auto">
+          <table class="w-full text-left text-xs text-slate-600 border-collapse">
+            <thead class="bg-slate-900 text-slate-200 uppercase text-[10px] font-semibold tracking-wider sticky top-0 z-10">
+              <tr>
+                <th class="py-2 px-2.5 text-center">#</th>
+                <th class="py-2 px-2.5 font-mono">SKU</th>
+                <th class="py-2 px-3">Item Description</th>
+                <th class="py-2 px-2.5">Trade</th>
+                <th class="py-2 px-2 text-center">UOM</th>
+                <th class="py-2 px-2.5 text-right">Qty</th>
+                <th class="py-2 px-2.5 text-right">Blended Rate (₹)</th>
+                <th class="py-2 px-2.5 text-right font-bold text-white">Total Value (Bucket)</th>
+                <th class="py-2 px-2.5 text-center">Scope</th>
+                <th class="py-2 px-3">Supply Allocation Pool</th>
+              </tr>
+            </thead>
+            <tbody id="tblSkuBody" class="divide-y divide-slate-200">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var currentReportData = null;
+
+    function renderBucketBadge(bucket) {
+      var b = bucket || 'Less than 25K';
+      var colorClass = "bg-slate-100 text-slate-700 border-slate-300";
+      if (b === '25-50K') colorClass = "bg-blue-50 text-blue-800 border-blue-200";
+      else if (b === '50K-1L') colorClass = "bg-indigo-50 text-indigo-800 border-indigo-200";
+      else if (b === '1-2L') colorClass = "bg-purple-50 text-purple-800 border-purple-200";
+      else if (b === '2-3L') colorClass = "bg-amber-50 text-amber-800 border-amber-300";
+      else if (b === '3-4L') colorClass = "bg-orange-50 text-orange-800 border-orange-300";
+      else if (b === '4-5L') colorClass = "bg-rose-50 text-rose-800 border-rose-300";
+      else if (b === '5L+') colorClass = "bg-rose-600 text-white font-bold";
+
+      return '<span class="inline-block px-2.5 py-0.5 rounded text-xs font-semibold border ' + colorClass + '">' + b + '</span>';
+    }
+
+    function fetchReport() {
+      var pid = document.getElementById('pidInput').value.trim();
+      if (!pid) return;
+
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('errorState').classList.add('hidden');
+      document.getElementById('reportContainer').classList.add('hidden');
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(onReportLoaded)
+          .withFailureHandler(onReportError)
+          .getProjectGovernanceReport(pid);
+      } else {
+        // Fallback demo mock if tested locally
+        setTimeout(function() {
+          onReportError("Google Apps Script context not found. Deploy as Web App on script.google.com.");
+        }, 500);
+      }
+    }
+
+    function onReportLoaded(res) {
+      document.getElementById('loadingState').classList.add('hidden');
+      if (!res || !res.success) {
+        document.getElementById('errorMessage').innerText = (res && res.error) ? res.error : "Failed to load report";
+        document.getElementById('errorState').classList.remove('hidden');
+        return;
+      }
+
+      currentReportData = res;
+      var meta = res.meta;
+
+      // Fill Header
+      document.getElementById('txtPidBadge').innerText = "PID " + meta.pid;
+      document.getElementById('txtCityBu').innerText = meta.city + " • " + meta.bu;
+      document.getElementById('txtVendor').innerText = meta.vendor;
+      document.getElementById('txtTotalLines').innerText = meta.totalLines;
+      document.getElementById('txtClubbedCount').innerText = meta.consolidatedSkuCount;
+
+      var polBadge = document.getElementById('txtPolicyBadge');
+      polBadge.innerText = meta.sourcingAllocationPolicy;
+      if (meta.sourcingAllocationPolicy.indexOf("Specialist") !== -1) {
+        polBadge.className = "text-[11px] px-2 py-0.5 rounded font-semibold bg-rose-50 text-rose-800 border border-rose-200";
+      } else {
+        polBadge.className = "text-[11px] px-2 py-0.5 rounded font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200";
+      }
+
+      // Fill Tier 1
+      document.getElementById('badgeTotalBoq').innerHTML = renderBucketBadge(meta.totalBoqBucket);
+      document.getElementById('badgeStandardBoq').innerHTML = renderBucketBadge(meta.standardBucket);
+      document.getElementById('badgeSpecialisedBoq').innerHTML = renderBucketBadge(meta.specialisedBucket);
+      document.getElementById('txtOverridesCount').innerText = meta.rateOverrideCount + " items";
+      document.getElementById('txtOverridesValue').innerText = "Band: " + meta.rateOverrideBucket;
+
+      // Fill Tier 2 (Trades)
+      var tHtml = '';
+      var trades = meta.trades;
+      Object.keys(trades).forEach(function(k) {
+        var tr = trades[k];
+        tHtml += '<tr class="hover:bg-slate-50">';
+        tHtml += '<td class="py-2.5 px-3.5 font-bold text-slate-900">' + tr.trade + '</td>';
+        tHtml += '<td class="py-2.5 px-3 text-right font-mono">' + tr.itemCount + '</td>';
+        tHtml += '<td class="py-2.5 px-3 text-right font-mono">' + renderBucketBadge(tr.totalQuoteBucket) + '</td>';
+        tHtml += '<td class="py-2.5 px-3 text-right font-mono">' + renderBucketBadge(tr.standardQuoteBucket) + '</td>';
+        tHtml += '<td class="py-2.5 px-3 text-right font-mono">' + (tr.specialisedQuoteBucket !== '—' ? renderBucketBadge(tr.specialisedQuoteBucket) : '<span class="text-slate-400">—</span>') + '</td>';
+        tHtml += '<td class="py-2.5 px-3.5 text-xs font-medium text-slate-700">' + tr.vendorPoolStrategy + '</td>';
+        tHtml += '</tr>';
+      });
+      document.getElementById('tblTradesBody').innerHTML = tHtml;
+
+      // Fill Tier 3 (Clubbed SKUs)
+      renderSkuTable(res.clubbedItems);
+
+      document.getElementById('reportContainer').classList.remove('hidden');
+    }
+
+    function renderSkuTable(items) {
+      var filterText = (document.getElementById('txtSkuFilter').value || '').toLowerCase().trim();
+      var filtered = items.filter(function(l) {
+        if (!filterText) return true;
+        return l.name.toLowerCase().indexOf(filterText) !== -1 || l.sku.toLowerCase().indexOf(filterText) !== -1;
+      });
+
+      var sHtml = '';
+      for (var i = 0; i < filtered.length; i++) {
+        var l = filtered[i];
+        sHtml += '<tr class="hover:bg-slate-50">';
+        sHtml += '<td class="py-2 px-2.5 text-center text-slate-400 font-mono text-[10px]">' + (i + 1) + '</td>';
+        sHtml += '<td class="py-2 px-2.5 font-mono font-semibold text-slate-900">' + l.sku + '</td>';
+        sHtml += '<td class="py-2 px-3">';
+        sHtml += '<div class="font-semibold text-slate-900 text-xs">' + l.name + '</div>';
+        if (l.lineCount > 1) {
+          sHtml += '<div class="text-[10px] font-medium text-indigo-600">★ Consolidated across ' + l.lineCount + ' lines</div>';
+        }
+        sHtml += '</td>';
+        sHtml += '<td class="py-2 px-2.5 text-xs text-slate-700">' + l.trade + '</td>';
+        sHtml += '<td class="py-2 px-2 text-center text-slate-500 font-mono text-[11px]">' + l.unit + '</td>';
+        sHtml += '<td class="py-2 px-2.5 text-right font-mono font-semibold">' + l.quantity + '</td>';
+        sHtml += '<td class="py-2 px-2.5 text-right font-mono">₹' + l.unitPrice.toLocaleString('en-IN') + '</td>';
+        sHtml += '<td class="py-2 px-2.5 text-right font-mono">' + renderBucketBadge(l.priceBucket) + '</td>';
+        sHtml += '<td class="py-2 px-2.5 text-center"><span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold ' + (l.scopeTag === 'Specialised' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700') + '">' + l.scopeTag + '</span></td>';
+        sHtml += '<td class="py-2 px-3 text-xs text-slate-700 font-medium">' + l.sourcingAction + '</td>';
+        sHtml += '</tr>';
+      }
+      document.getElementById('tblSkuBody').innerHTML = sHtml;
+    }
+
+    function filterSkuTable() {
+      if (currentReportData && currentReportData.clubbedItems) {
+        renderSkuTable(currentReportData.clubbedItems);
+      }
+    }
+
+    function onReportError(err) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorMessage').innerText = err ? err.toString() : "Unknown error";
+      document.getElementById('errorState').classList.remove('hidden');
+    }
+
+    function exportCsv() {
+      if (!currentReportData || !currentReportData.clubbedItems) return;
+      var items = currentReportData.clubbedItems;
+      var rows = [["SKU", "Description", "Trade", "UOM", "Consolidated Qty", "Blended Unit Rate (INR)", "Total Value Bucket", "Scope Tag", "Sourcing Pool"]];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        rows.push([it.sku, '"' + it.name.replace(/"/g, '""') + '"', it.trade, it.unit, it.quantity, it.unitPrice, it.priceBucket, it.scopeTag, it.sourcingAction]);
+      }
+      var csvContent = "data:text/csv;charset=utf-8," + rows.map(function(e) { return e.join(","); }).join("\n");
+      var encodedUri = encodeURI(csvContent);
+      var link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "PID_" + currentReportData.meta.pid + "_Sourcing_BoQ.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Auto-load on open
+    window.addEventListener('load', function() {
+      fetchReport();
+    });
+  </script>
+</body>
+</html>
