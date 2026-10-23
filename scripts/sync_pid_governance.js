@@ -60,6 +60,8 @@ async function main() {
       const scope = r[11]; // Col M
       const ci = parseFloat(r[13]) || 2; // Col O
       if (name && name.trim()) {
+        const cleanK = name.trim().toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+        activeRubricMap.set(cleanK, { trade: trade || 'Carpentry', scope: scope || 'Standard', ci });
         activeRubricMap.set(name.trim().toLowerCase(), {
           trade: trade || 'Carpentry',
           scope: scope || 'Standard',
@@ -82,6 +84,8 @@ async function main() {
       const trade = r[0];
       const name = r[4]; // Col J
       if (name && name.trim()) {
+        const cleanK = name.trim().toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+        oldMrcMap.set(cleanK, trade || 'Civil');
         oldMrcMap.set(name.trim().toLowerCase(), trade || 'Civil');
       }
     });
@@ -92,7 +96,7 @@ async function main() {
   console.log('📥 4/4 Fetching RFV Converted Quotes (RFV_Dump-OND26)...');
   const rfvRes = await sheets.spreadsheets.values.get({
     spreadsheetId: RFV_DUMP_ID,
-    range: "'RFV_Dump-OND26'!A2:S"
+    range: "'RFV_Dump-OND26'!A2:S20000"
   });
 
   const rfvRows = rfvRes.data.values || [];
@@ -233,10 +237,7 @@ async function main() {
       if (sc) dfSubCat = sc[1].trim();
     }
 
-    const fullText = `${cleanName} ${df} ${specs}`;
-    const f1 = f1Regex.test(fullText) ? 1 : 0;
-    const f2 = f2Regex.test(fullText) ? 1 : 0;
-    const f3 = f3Regex.test(fullText) ? 1 : 0;
+    const cleanKey = cleanNameLower.replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
 
     let matchOrigin = 'Regex Match';
     let trade = 'Civil';
@@ -244,20 +245,25 @@ async function main() {
     let baseScope = 'Standard';
     let complexityScore = 2;
 
-    if (activeRubricMap.has(cleanNameLower)) {
+    const f1SpecialisedTitleRegex = new RegExp(
+      'duco|pu finish|\\bpu\\b|veneer|melamine|cnc|marble|polish|waterproof|thermostat|body jet|archi|texture|exterior|camouflage|inlay|epoxy|brickbat|coba|fluted|charcoal|acoustic|lacquered|bevelled|tinted glass|smart switch|heavy load|ac piping|chandel',
+      'i'
+    );
+
+    if (activeRubricMap.has(cleanKey) || activeRubricMap.has(cleanNameLower)) {
       matchOrigin = 'Active Rubric';
       matchOriginStats.activeRubric++;
-      const entry = activeRubricMap.get(cleanNameLower);
+      const entry = activeRubricMap.get(cleanKey) || activeRubricMap.get(cleanNameLower);
       trade = normalizeTrade(entry.trade);
       baseScope = entry.scope.toLowerCase().includes('spec') ? 'Specialised' : 'Standard';
       complexityScore = entry.ci || 2;
-    } else if (oldMrcMap.has(cleanNameLower)) {
+    } else if (oldMrcMap.has(cleanKey) || oldMrcMap.has(cleanNameLower)) {
       matchOrigin = 'Old MRC';
       matchOriginStats.oldMrc++;
-      trade = normalizeTrade(oldMrcMap.get(cleanNameLower));
-      if (f1 === 1 || f1 + f2 + f3 >= 2) {
+      trade = normalizeTrade(oldMrcMap.get(cleanKey) || oldMrcMap.get(cleanNameLower));
+      if (f1SpecialisedTitleRegex.test(cleanName)) {
         baseScope = 'Specialised';
-        complexityScore = Math.max(3, f1 + f2 + f3 + 1);
+        complexityScore = 3;
       } else {
         baseScope = 'Standard';
         complexityScore = 2;
@@ -266,9 +272,9 @@ async function main() {
       matchOrigin = 'DF Metadata';
       matchOriginStats.dfMetadata++;
       trade = normalizeTrade(dfTrade);
-      if (f1 === 1 || f1 + f2 + f3 >= 2) {
+      if (f1SpecialisedTitleRegex.test(cleanName)) {
         baseScope = 'Specialised';
-        complexityScore = Math.max(3, f1 + f2 + f3 + 1);
+        complexityScore = 3;
       } else {
         baseScope = 'Standard';
         complexityScore = 2;
@@ -276,9 +282,9 @@ async function main() {
     } else {
       matchOriginStats.regexMatch++;
       trade = normalizeTrade(cleanName);
-      if (f1 === 1 || f1 + f2 + f3 >= 2) {
+      if (f1SpecialisedTitleRegex.test(cleanName)) {
         baseScope = 'Specialised';
-        complexityScore = Math.max(3, f1 + f2 + f3 + 1);
+        complexityScore = 3;
       } else {
         baseScope = 'Standard';
         complexityScore = 1;
@@ -306,6 +312,10 @@ async function main() {
     if (finalScope === 'Specialised') {
       sourcingAction = tradeConfigs[trade]?.specialistVendor || 'Specialist Partner Pool';
     }
+
+    const f1 = f1SpecialisedTitleRegex.test(cleanName) ? 1 : 0;
+    const f2 = 0;
+    const f3 = 0;
 
     const auditedItem = {
       lineId: `${projectId}-${idx+1}`,
@@ -475,6 +485,42 @@ async function main() {
       commercialContingencyBuffer = '0% Buffer';
     }
 
+    const clubbedMap = new Map();
+    lines.forEach(l => {
+      const key = l.cleanName.trim();
+      if (!clubbedMap.has(key)) {
+        clubbedMap.set(key, {
+          name: l.cleanName,
+          sku: l.sku,
+          trade: l.trade,
+          subCategory: l.subCategory,
+          unit: l.unit,
+          quantity: 0,
+          preTaxPrice: 0,
+          scopeTag: l.scopeTag,
+          rateRuleFlag: l.rateRuleFlag,
+          sourcingAction: l.sourcingAction,
+          lineCount: 0
+        });
+      }
+      const entry = clubbedMap.get(key);
+      entry.quantity += l.quantity;
+      entry.preTaxPrice += l.preTaxPrice;
+      entry.lineCount += 1;
+      if (l.scopeTag === 'Specialised') {
+        entry.scopeTag = 'Specialised';
+        entry.sourcingAction = l.sourcingAction;
+        entry.rateRuleFlag = l.rateRuleFlag;
+      }
+    });
+
+    const clubbedLineItems = Array.from(clubbedMap.values()).map(c => ({
+      ...c,
+      quantity: Math.round(c.quantity * 100) / 100,
+      preTaxPrice: Math.round(c.preTaxPrice),
+      unitPrice: c.quantity > 0 ? Math.round(c.preTaxPrice / c.quantity) : 0
+    }));
+
     pidsSummaryList.push({
       projectId,
       city: meta.city || 'Unknown',
@@ -483,6 +529,7 @@ async function main() {
       status: meta.status || 'CONVERTED',
       publishedAt: meta.publishedAt || '',
       itemCount: lines.length,
+      consolidatedSkuCount: clubbedLineItems.length,
       totalServicesQuote,
       standardScopeQuote,
       standardScopeSharePct,
@@ -501,7 +548,8 @@ async function main() {
       timelineScheduleBuffer,
       commercialContingencyBuffer,
       trades: tradesMap,
-      lineItems: lines
+      lineItems: lines,
+      clubbedLineItems
     });
   }
 
