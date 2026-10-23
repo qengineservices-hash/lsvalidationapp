@@ -980,7 +980,7 @@ export default function PidGovernancePage() {
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      All Quotation Lines ({activePid.lineItems.length})
+                      All Quotation Lines ({activePid.lineItems?.length || activePid.itemCount})
                     </button>
                   </div>
 
@@ -1088,9 +1088,23 @@ export default function PidGovernancePage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {activePid.lineItems
-                          .filter((l) => !lineSearch || l.cleanName.toLowerCase().includes(lineSearch.toLowerCase()) || l.sku.toLowerCase().includes(lineSearch.toLowerCase()))
-                          .map((l, i) => (
+                        {isLoadingItems ? (
+                          <tr>
+                            <td colSpan={10} className="py-8 text-center text-slate-500 text-xs">
+                              <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1.5 text-slate-400" />
+                              Loading All Quotation Lines...
+                            </td>
+                          </tr>
+                        ) : (activePid.lineItems || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="py-8 text-center text-slate-400 text-xs">
+                              No quotation lines found for this PID.
+                            </td>
+                          </tr>
+                        ) : (
+                          (activePid.lineItems || [])
+                            .filter((l) => !lineSearch || (l.cleanName && l.cleanName.toLowerCase().includes(lineSearch.toLowerCase())) || (l.sku && l.sku.toLowerCase().includes(lineSearch.toLowerCase())))
+                            .map((l, i) => (
                             <tr key={l.lineId || i} className="hover:bg-slate-50">
                               <td className="py-2 px-2.5 text-center text-slate-400 font-mono text-[10px]">{i + 1}</td>
                               <td className="py-2 px-3">
@@ -1118,7 +1132,8 @@ export default function PidGovernancePage() {
                                 {l.sourcingAction}
                               </td>
                             </tr>
-                          ))}
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
