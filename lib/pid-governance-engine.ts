@@ -160,6 +160,7 @@ export interface AuditedLineItem {
   tradeWeight: number;     // W_t: 2.0 to 5.0
   lineNri: number;         // (C_i * PreTax) / W_t
   sourcingAction: string;
+  priceBucket?: string;
 }
 
 export interface TradeSummary {
@@ -175,6 +176,9 @@ export interface TradeSummary {
   totalNri: number;
   vendorPoolStrategy: string;
   mandatoryExecutionGate: string;
+  priceBucket?: string;
+  standardBucket?: string;
+  specialisedBucket?: string;
 }
 
 export interface ClubbedLineItem {
@@ -190,6 +194,7 @@ export interface ClubbedLineItem {
   sourcingAction: string;
   lineCount: number;
   unitPrice: number;
+  priceBucket?: string;
 }
 
 export interface PidGovernanceSummary {
@@ -221,6 +226,9 @@ export interface PidGovernanceSummary {
   trades: Record<string, TradeSummary>;
   lineItems: AuditedLineItem[];
   clubbedLineItems?: ClubbedLineItem[];
+  priceBucket?: string;
+  standardBucket?: string;
+  specialisedBucket?: string;
 }
 
 export interface PortfolioGovernanceMetrics {
@@ -228,11 +236,15 @@ export interface PortfolioGovernanceMetrics {
   totalConvertedBoQ: number;
   totalStandardBoQ: number;
   totalSpecialisedBoQ: number;
+  totalBoqBucket?: string;
+  totalStandardBucket?: string;
+  totalSpecialisedBucket?: string;
   portfolioSpecialisedSharePct: number;
   portfolioTotalNri: number;
   portfolioRiskMultiplier: number;
   totalRateOverridesCount: number;
   totalRateOverridesValue: number;
+  totalRateOverridesBucket?: string;
   riskClassCounts: {
     critical: number;
     high: number;

@@ -22,15 +22,39 @@ import type {
   ClubbedLineItem
 } from "@/lib/pid-governance-engine";
 
-// Import precomputed data directly for instant zero-latency load
-import precomputedData from "@/lib/data/pid_governance_data.json";
+import {
+  getPriceBucket,
+  getBucketColorClasses,
+  PRICE_BUCKETS
+} from "@/lib/price-buckets";
+
+const initialPortfolio: PortfolioGovernanceMetrics = {
+  totalProjects: 0,
+  totalConvertedBoQ: 0,
+  totalStandardBoQ: 0,
+  totalSpecialisedBoQ: 0,
+  portfolioSpecialisedSharePct: 0,
+  portfolioTotalNri: 0,
+  portfolioRiskMultiplier: 0,
+  totalRateOverridesCount: 0,
+  totalRateOverridesValue: 0,
+  riskClassCounts: { critical: 0, high: 0, medium: 0, low: 0 },
+  cityCounts: {},
+  buCounts: {},
+  tradeTotals: {}
+};
 
 export default function PidGovernancePage() {
   const [data, setData] = useState<{
     syncMetadata: any;
     portfolio: PortfolioGovernanceMetrics;
     pids: PidGovernanceSummary[];
-  }>(precomputedData as any);
+  }>({
+    syncMetadata: { areaRateThreshold: 2000, rulesMasterId: "1RllaOUwuh1JjCdhigYrwRcwMBygay7lzMD23-xrTbAs" },
+    portfolio: initialPortfolio,
+    pids: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"scorecard" | "portfolio" | "rules">("scorecard");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -42,13 +66,56 @@ export default function PidGovernancePage() {
   const [selectedBu, setSelectedBu] = useState("ALL");
   const [selectedTrade, setSelectedTrade] = useState("ALL");
   const [selectedSourcing, setSelectedSourcing] = useState("ALL");
+  const [selectedBucket, setSelectedBucket] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
 
   // Selected PID for Deep Drawer Drilldown
   const [activePid, setActivePid] = useState<PidGovernanceSummary | null>(null);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [lineSearch, setLineSearch] = useState("");
   const [skuViewMode, setSkuViewMode] = useState<"clubbed" | "raw">("clubbed");
+
+  // Load Initial Governance Summary Data via API
+  useEffect(() => {
+    setIsLoading(true);
+    fetch("/api/pid-governance/data")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json && json.pids) {
+          setData(json);
+        }
+      })
+      .catch((err) => console.error("Error loading PID governance data:", err))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  // Fetch On-Demand SKU items when a PID is opened in the drawer
+  useEffect(() => {
+    setLineSearch("");
+    setSkuViewMode("clubbed");
+
+    if (activePid && (!activePid.clubbedLineItems || activePid.clubbedLineItems.length === 0)) {
+      setIsLoadingItems(true);
+      fetch(`/api/pid-governance/items?pid=${activePid.projectId}`)
+        .then((res) => res.json())
+        .then((items) => {
+          if (items) {
+            setActivePid((prev) =>
+              prev && prev.projectId === activePid.projectId
+                ? {
+                    ...prev,
+                    clubbedLineItems: items.clubbedLineItems || [],
+                    lineItems: items.lineItems || []
+                  }
+                : prev
+            );
+          }
+        })
+        .catch((err) => console.error("Error loading items for PID:", err))
+        .finally(() => setIsLoadingItems(false));
+    }
+  }, [activePid?.projectId]);
 
   // Sync Live Handler
   const handleLiveSync = async () => {
@@ -103,9 +170,13 @@ export default function PidGovernancePage() {
         if (selectedSourcing === "SPECIALIST" && !p.sourcingAllocationPolicy.includes("Specialist")) return false;
         if (selectedSourcing === "STANDARD" && p.sourcingAllocationPolicy.includes("Specialist")) return false;
       }
+      if (selectedBucket !== "ALL") {
+        const bucket = p.priceBucket || getPriceBucket(p.totalServicesQuote);
+        if (bucket !== selectedBucket) return false;
+      }
       return true;
     });
-  }, [data, searchTerm, selectedCity, selectedBu, selectedTrade, selectedSourcing]);
+  }, [data, searchTerm, selectedCity, selectedBu, selectedTrade, selectedSourcing, selectedBucket]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPids.length / pageSize) || 1;
@@ -116,17 +187,24 @@ export default function PidGovernancePage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCity, selectedBu, selectedTrade, selectedSourcing]);
-
-  // Reset drawer search and view mode on PID select
-  useEffect(() => {
-    setLineSearch("");
-    setSkuViewMode("clubbed");
-  }, [activePid]);
+  }, [searchTerm, selectedCity, selectedBu, selectedTrade, selectedSourcing, selectedBucket]);
 
   // Helper Formatters
   const formatINR = (val: number) => {
     return "₹" + Math.round(val).toLocaleString("en-IN");
+  };
+
+  const renderBucketBadge = (val: number | string | undefined | null) => {
+    const bucket = typeof val === "number" ? getPriceBucket(val) : (val || "—");
+    if (!bucket || bucket === "—" || bucket === "None") {
+      return <span className="text-slate-400 font-mono text-xs">—</span>;
+    }
+    const colors = getBucketColorClasses(bucket);
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold font-mono border ${colors}`}>
+        {bucket}
+      </span>
+    );
   };
 
   const getScopeBadge = (scope: string) => {
@@ -150,8 +228,8 @@ export default function PidGovernancePage() {
           "Sub Category": l.subCategory,
           "UOM": l.unit,
           "Consolidated Qty": l.quantity,
-          "Blended Unit Rate (₹)": l.unitPrice,
-          "Total Amount (₹)": l.preTaxPrice,
+          "Blended Unit Rate (₹/Qty)": l.unitPrice,
+          "Total Value (Bucket)": l.priceBucket || getPriceBucket(l.preTaxPrice),
           "Scope Tag": l.scopeTag,
           "Rate Rule Flag": l.rateRuleFlag,
           "Supply Allocation Action": l.sourcingAction,
@@ -166,8 +244,8 @@ export default function PidGovernancePage() {
           "SKU": l.sku,
           "UOM": l.unit,
           "Qty": l.quantity,
-          "Unit Rate (₹)": l.unitPrice,
-          "Total (₹)": l.preTaxPrice,
+          "Unit Rate (₹/Qty)": l.unitPrice,
+          "Total Value (Bucket)": getPriceBucket(l.preTaxPrice),
           "Scope Tag": l.scopeTag,
           "Rate Override": l.rateRuleFlag,
           "Supply Allocation Action": l.sourcingAction
@@ -182,11 +260,11 @@ export default function PidGovernancePage() {
         "VL Email": p.vlEmail,
         "Consolidated SKUs": p.consolidatedSkuCount || p.clubbedLineItems?.length || p.itemCount,
         "Total Quotation Lines": p.itemCount,
-        "Total Services BoQ (₹)": p.totalServicesQuote,
-        "Standard Scope (₹)": p.standardScopeQuote,
-        "Specialised Scope (₹)": p.specialisedScopeQuote,
+        "Total BoQ (Bucket)": p.priceBucket || getPriceBucket(p.totalServicesQuote),
+        "Standard Scope (Bucket)": p.standardBucket || getPriceBucket(p.standardScopeQuote),
+        "Specialised Scope (Bucket)": p.specialisedBucket || getPriceBucket(p.specialisedScopeQuote),
         "Rate > ₹2k Overrides Count": p.rateOverrideCount,
-        "Rate > ₹2k Overrides (₹)": p.rateOverrideQuote,
+        "Rate > ₹2k Overrides Band": getPriceBucket(p.rateOverrideQuote),
         "Sourcing Policy": p.sourcingAllocationPolicy,
         "Approval Gate": p.mandatoryApprovalGate
       }));
@@ -293,43 +371,43 @@ export default function PidGovernancePage() {
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {/* Tier 1 Portfolio KPI Scorecard - Simplified 4-Card Supply Slate */}
+        {/* Tier 1 Portfolio KPI Scorecard - Simplified 4-Card Supply Slate (Price Buckets) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Total Services BoQ</span>
+              <span>Total Services BoQ (Bucket)</span>
               <DollarSign className="w-4 h-4 text-slate-400" />
             </div>
             <div className="text-xl font-bold text-slate-900 mt-1">
-              {formatINR(data.portfolio.totalConvertedBoQ)}
+              {renderBucketBadge(data.portfolio.totalBoqBucket || data.portfolio.totalConvertedBoQ)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Across {data.portfolio.totalProjects} converted PIDs
+            <div className="text-[11px] text-slate-500 mt-1">
+              Across {data.portfolio.totalProjects} converted 2026 PIDs
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Standard Scope Volume</span>
+              <span>Standard Scope Volume (Bucket)</span>
               <Package className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-xl font-bold text-emerald-700 mt-1">
-              {formatINR(data.portfolio.totalStandardBoQ)}
+              {renderBucketBadge(data.portfolio.totalStandardBucket || data.portfolio.totalStandardBoQ)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
+            <div className="text-[11px] text-slate-500 mt-1">
               Standard Contractor Pool Dispatch
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Specialised Scope Volume</span>
+              <span>Specialised Scope Volume (Bucket)</span>
               <TrendingUp className="w-4 h-4 text-rose-500" />
             </div>
             <div className="text-xl font-bold text-rose-700 mt-1">
-              {formatINR(data.portfolio.totalSpecialisedBoQ)}
+              {renderBucketBadge(data.portfolio.totalSpecialisedBucket || data.portfolio.totalSpecialisedBoQ)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
+            <div className="text-[11px] text-slate-500 mt-1">
               Specialist Trade Partner Allocation
             </div>
           </div>
@@ -342,8 +420,8 @@ export default function PidGovernancePage() {
             <div className="text-xl font-bold text-slate-900 mt-1">
               {data.portfolio.totalRateOverridesCount} items
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Total {formatINR(data.portfolio.totalRateOverridesValue)}
+            <div className="text-[11px] text-slate-500 mt-1">
+              Value Band: {data.portfolio.totalRateOverridesBucket || getPriceBucket(data.portfolio.totalRateOverridesValue)}
             </div>
           </div>
         </div>
@@ -418,7 +496,18 @@ export default function PidGovernancePage() {
                   <option value="STANDARD">Standard Pool Dispatch</option>
                 </select>
 
-                {(searchTerm || selectedCity !== "ALL" || selectedBu !== "ALL" || selectedTrade !== "ALL" || selectedSourcing !== "ALL") && (
+                <select
+                  value={selectedBucket}
+                  onChange={(e) => setSelectedBucket(e.target.value)}
+                  className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none"
+                >
+                  <option value="ALL">All Price Bands</option>
+                  {PRICE_BUCKETS.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+
+                {(searchTerm || selectedCity !== "ALL" || selectedBu !== "ALL" || selectedTrade !== "ALL" || selectedSourcing !== "ALL" || selectedBucket !== "ALL") && (
                   <button
                     onClick={() => {
                       setSearchTerm("");
@@ -426,6 +515,7 @@ export default function PidGovernancePage() {
                       setSelectedBu("ALL");
                       setSelectedTrade("ALL");
                       setSelectedSourcing("ALL");
+                      setSelectedBucket("ALL");
                     }}
                     className="text-xs text-rose-600 hover:text-rose-800 font-medium px-2 py-1"
                   >
@@ -445,9 +535,9 @@ export default function PidGovernancePage() {
                       <th className="py-3 px-3.5">PID</th>
                       <th className="py-3 px-3.5">City / BU</th>
                       <th className="py-3 px-3.5 text-right">SKUs (Lines)</th>
-                      <th className="py-3 px-3.5 text-right font-bold text-white">Total BoQ (₹)</th>
-                      <th className="py-3 px-3.5 text-right">Standard (₹)</th>
-                      <th className="py-3 px-3.5 text-right text-rose-400 font-bold">Specialised (₹)</th>
+                      <th className="py-3 px-3.5 text-right font-bold text-white">Total BoQ (Bucket)</th>
+                      <th className="py-3 px-3.5 text-right">Standard Scope (Bucket)</th>
+                      <th className="py-3 px-3.5 text-right text-rose-400 font-bold">Specialised Scope (Bucket)</th>
                       <th className="py-3 px-3.5 text-center">Rate &gt; ₹2k Overrides</th>
                       <th className="py-3 px-3.5">Sourcing Allocation Policy</th>
                       <th className="py-3 px-3.5">Approval Gate</th>
@@ -455,7 +545,14 @@ export default function PidGovernancePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {paginatedPids.length === 0 ? (
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={11} className="py-12 text-center text-slate-500 text-xs">
+                          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-slate-400" />
+                          Loading 2026 PID Sourcing & Contractor Allocation Registry...
+                        </td>
+                      </tr>
+                    ) : paginatedPids.length === 0 ? (
                       <tr>
                         <td colSpan={11} className="py-8 text-center text-slate-400 text-xs">
                           No projects match the selected criteria.
@@ -485,19 +582,19 @@ export default function PidGovernancePage() {
                               <span className="font-bold text-slate-900">{skuCount}</span>
                               <span className="text-[10px] text-slate-400 block font-sans">({p.itemCount} lines)</span>
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-bold text-slate-900 font-mono">
-                              {formatINR(p.totalServicesQuote)}
+                            <td className="py-2.5 px-3.5 text-right font-bold font-mono">
+                              {renderBucketBadge(p.priceBucket || p.totalServicesQuote)}
                             </td>
-                            <td className="py-2.5 px-3.5 text-right text-slate-700 font-mono">
-                              {formatINR(p.standardScopeQuote)}
+                            <td className="py-2.5 px-3.5 text-right font-mono">
+                              {renderBucketBadge(p.standardBucket || p.standardScopeQuote)}
                             </td>
-                            <td className="py-2.5 px-3.5 text-right font-semibold text-rose-700 font-mono">
-                              {p.specialisedScopeQuote > 0 ? formatINR(p.specialisedScopeQuote) : "—"}
+                            <td className="py-2.5 px-3.5 text-right font-semibold font-mono">
+                              {p.specialisedScopeQuote > 0 ? renderBucketBadge(p.specialisedBucket || p.specialisedScopeQuote) : <span className="text-slate-400 font-mono text-xs">—</span>}
                             </td>
                             <td className="py-2.5 px-3.5 text-center">
                               {p.rateOverrideCount > 0 ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                  {p.rateOverrideCount} items ({formatINR(p.rateOverrideQuote)})
+                                  {p.rateOverrideCount} items ({getPriceBucket(p.rateOverrideQuote)})
                                 </span>
                               ) : (
                                 <span className="text-slate-400 font-mono text-xs">—</span>
@@ -580,9 +677,9 @@ export default function PidGovernancePage() {
                   <thead className="bg-slate-900 text-slate-200 uppercase text-[10px] tracking-wider font-semibold border-b border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3.5">Trade (Super Category)</th>
-                      <th className="py-2.5 px-3.5 text-right font-bold text-white">Total Quote (₹)</th>
-                      <th className="py-2.5 px-3.5 text-right">Standard Scope (₹)</th>
-                      <th className="py-2.5 px-3.5 text-right text-rose-400 font-bold">Specialised Scope (₹)</th>
+                      <th className="py-2.5 px-3.5 text-right font-bold text-white">Total Value (Bucket)</th>
+                      <th className="py-2.5 px-3.5 text-right">Standard Scope (Bucket)</th>
+                      <th className="py-2.5 px-3.5 text-right text-rose-400 font-bold">Specialised Scope (Bucket)</th>
                       <th className="py-2.5 px-3.5">Primary Sourcing Strategy Allocation</th>
                     </tr>
                   </thead>
@@ -590,9 +687,11 @@ export default function PidGovernancePage() {
                     {Object.values(data.portfolio.tradeTotals).map((tr) => (
                       <tr key={tr.trade} className="hover:bg-slate-50">
                         <td className="py-3 px-3.5 font-bold text-slate-900">{tr.trade}</td>
-                        <td className="py-3 px-3.5 text-right font-mono font-bold text-slate-900">{formatINR(tr.totalQuote)}</td>
-                        <td className="py-3 px-3.5 text-right font-mono text-slate-700">{formatINR(tr.standardQuote)}</td>
-                        <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-700">{formatINR(tr.specialisedQuote)}</td>
+                        <td className="py-3 px-3.5 text-right font-mono font-bold">{renderBucketBadge(tr.totalQuote)}</td>
+                        <td className="py-3 px-3.5 text-right font-mono">{renderBucketBadge(tr.standardQuote)}</td>
+                        <td className="py-3 px-3.5 text-right font-mono font-bold">
+                          {tr.specialisedQuote > 0 ? renderBucketBadge(tr.specialisedQuote) : <span className="text-slate-400 font-mono text-xs">—</span>}
+                        </td>
                         <td className="py-3 px-3.5 text-xs text-slate-700 font-medium">{tr.vendorPoolStrategy}</td>
                       </tr>
                     ))}
@@ -768,28 +867,37 @@ export default function PidGovernancePage() {
               {/* TIER 1: Executive KPI Scorecard */}
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 1: Sourcing Financial & Policy Summary
+                  Tier 1: Sourcing Financial & Policy Summary (Discrete Price Buckets)
                 </h3>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Total Services Quote</div>
-                    <div className="text-base font-bold text-slate-900 mt-0.5">{formatINR(activePid.totalServicesQuote)}</div>
+                    <div className="text-[11px] text-slate-500 font-medium">TOTAL SERVICES BOQ (BUCKET)</div>
+                    <div className="mt-1">{renderBucketBadge(activePid.priceBucket || activePid.totalServicesQuote)}</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Total Value Band across Project</div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Standard Scope</div>
-                    <div className="text-base font-bold text-emerald-700 mt-0.5">{formatINR(activePid.standardScopeQuote)}</div>
-                    <div className="text-[10px] text-slate-500">{activePid.standardScopeSharePct}% share</div>
+                    <div className="text-[11px] text-slate-500 font-medium">STANDARD SERVICES SCOPE (BUCKET)</div>
+                    <div className="mt-1">{renderBucketBadge(activePid.standardBucket || activePid.standardScopeQuote)}</div>
+                    <div className="text-[10px] text-slate-500 mt-1">Standard Contractor Pool Band</div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Specialised Scope</div>
-                    <div className="text-base font-bold text-rose-700 mt-0.5">{formatINR(activePid.specialisedScopeQuote)}</div>
-                    <div className="text-[10px] text-slate-500">{activePid.specialisedScopeSharePct}% share</div>
+                    <div className="text-[11px] text-slate-500 font-medium">SPECIALISED SERVICES SCOPE (BUCKET)</div>
+                    <div className="mt-1">
+                      {activePid.specialisedScopeQuote > 0 ? (
+                        renderBucketBadge(activePid.specialisedBucket || activePid.specialisedScopeQuote)
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500">None</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1">Specialist Partner Pool Band</div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div className="text-[11px] text-slate-500">Rate &gt; ₹2k Overrides</div>
+                    <div className="text-[11px] text-slate-500 font-medium">RATE &gt; ₹2K OVERRIDES</div>
                     <div className="text-base font-bold text-slate-900 mt-0.5">{activePid.rateOverrideCount} items</div>
-                    <div className="text-[10px] text-slate-500">{formatINR(activePid.rateOverrideQuote)}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {activePid.rateOverrideCount > 0 ? `Value: ${getPriceBucket(activePid.rateOverrideQuote)}` : "0 items"}
+                    </div>
                   </div>
                 </div>
 
@@ -808,7 +916,7 @@ export default function PidGovernancePage() {
               {/* TIER 2: Trade Breakdown Matrix */}
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 2: Trade Matrix & Partner Allocation
+                  Tier 2: Trade-Level Supply Allocation Matrix (Discrete Price Buckets)
                 </h3>
 
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -817,9 +925,9 @@ export default function PidGovernancePage() {
                       <tr>
                         <th className="py-2.5 px-3">Trade</th>
                         <th className="py-2.5 px-3 text-right">Items</th>
-                        <th className="py-2.5 px-3 text-right">Total Quote</th>
-                        <th className="py-2.5 px-3 text-right">Standard</th>
-                        <th className="py-2.5 px-3 text-right text-rose-400">Specialised</th>
+                        <th className="py-2.5 px-3 text-right">Total Quoted Value (Bucket)</th>
+                        <th className="py-2.5 px-3 text-right">Standard Scope (Bucket)</th>
+                        <th className="py-2.5 px-3 text-right text-rose-400">Specialised Scope (Bucket)</th>
                         <th className="py-2.5 px-3">Supply Partner Allocation Pool</th>
                       </tr>
                     </thead>
@@ -828,10 +936,10 @@ export default function PidGovernancePage() {
                         <tr key={tr.trade} className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-bold text-slate-900">{tr.trade}</td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-600">{tr.itemCount}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{formatINR(tr.totalQuote)}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-700">{formatINR(tr.standardQuote)}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-semibold">
-                            {tr.specialisedQuote > 0 ? formatINR(tr.specialisedQuote) : "—"}
+                          <td className="py-2.5 px-3 text-right font-mono">{renderBucketBadge(tr.totalQuote)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">{renderBucketBadge(tr.standardQuote)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-semibold">
+                            {tr.specialisedQuote > 0 ? renderBucketBadge(tr.specialisedQuote) : <span className="text-slate-400 font-mono text-xs">—</span>}
                           </td>
                           <td className="py-2.5 px-3 text-xs text-slate-700 font-medium">{tr.vendorPoolStrategy}</td>
                         </tr>
@@ -843,6 +951,15 @@ export default function PidGovernancePage() {
 
               {/* TIER 3: SKU Registry (Clubbed SKUs by default, toggle for raw lines) */}
               <div className="space-y-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-0.5">
+                    Tier 3: Consolidated SKU Allocation Register (Clubbed by SKU)
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Identical SKUs across rooms/elevations are clubbed into single aggregated lines. Prices are classified into discrete value bands (not per-sqft rates).
+                  </div>
+                </div>
+
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center space-x-2">
                     <button
@@ -884,21 +1001,35 @@ export default function PidGovernancePage() {
                         <tr>
                           <th className="py-2 px-2.5 text-center">#</th>
                           <th className="py-2 px-2.5 font-mono">SKU</th>
-                          <th className="py-2 px-3">Item Description (Clean SKU)</th>
+                          <th className="py-2 px-3">SKU / Item Description</th>
                           <th className="py-2 px-2.5">Trade</th>
                           <th className="py-2 px-2 text-center">UOM</th>
                           <th className="py-2 px-2.5 text-right">Consolidated Qty</th>
-                          <th className="py-2 px-2.5 text-right">Blended Rate (₹)</th>
-                          <th className="py-2 px-2.5 text-right font-bold text-white">Total (₹)</th>
+                          <th className="py-2 px-2.5 text-right">Blended Unit Rate (₹/Qty)</th>
+                          <th className="py-2 px-2.5 text-right font-bold text-white">Total Value (Bucket)</th>
                           <th className="py-2 px-2.5 text-center">Scope</th>
                           <th className="py-2 px-2.5">Rate Rule Flag</th>
                           <th className="py-2 px-2.5">Supply Allocation Pool</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {(activePid.clubbedLineItems || [])
-                          .filter((l) => !lineSearch || l.name.toLowerCase().includes(lineSearch.toLowerCase()) || l.sku.toLowerCase().includes(lineSearch.toLowerCase()))
-                          .map((l, i) => (
+                        {isLoadingItems ? (
+                          <tr>
+                            <td colSpan={11} className="py-8 text-center text-slate-500 text-xs">
+                              <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1.5 text-slate-400" />
+                              Loading Sourcing SKUs...
+                            </td>
+                          </tr>
+                        ) : (activePid.clubbedLineItems || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={11} className="py-8 text-center text-slate-400 text-xs">
+                              No clubbed SKUs found for this PID.
+                            </td>
+                          </tr>
+                        ) : (
+                          (activePid.clubbedLineItems || [])
+                            .filter((l) => !lineSearch || l.name.toLowerCase().includes(lineSearch.toLowerCase()) || l.sku.toLowerCase().includes(lineSearch.toLowerCase()))
+                            .map((l, i) => (
                             <tr key={l.sku + "_" + i} className="hover:bg-slate-50">
                               <td className="py-2 px-2.5 text-center text-slate-400 font-mono text-[10px]">{i + 1}</td>
                               <td className="py-2 px-2.5 font-mono font-semibold text-slate-900">{l.sku}</td>
@@ -913,8 +1044,10 @@ export default function PidGovernancePage() {
                               <td className="py-2 px-2.5 text-xs text-slate-700">{l.trade}</td>
                               <td className="py-2 px-2 text-center text-slate-500 font-mono text-[11px]">{l.unit}</td>
                               <td className="py-2 px-2.5 text-right font-mono font-semibold">{l.quantity}</td>
-                              <td className="py-2 px-2.5 text-right font-mono">{Math.round(l.unitPrice).toLocaleString("en-IN")}</td>
-                              <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-900">{formatINR(l.preTaxPrice)}</td>
+                              <td className="py-2 px-2.5 text-right font-mono">₹{Math.round(l.unitPrice).toLocaleString("en-IN")}</td>
+                              <td className="py-2 px-2.5 text-right font-mono font-bold">
+                                {renderBucketBadge(l.priceBucket || l.preTaxPrice)}
+                              </td>
                               <td className="py-2 px-2.5 text-center">{getScopeBadge(l.scopeTag)}</td>
                               <td className="py-2 px-2.5 text-[11px]">
                                 {l.rateRuleFlag === "Rate > ₹2k Override" ? (
@@ -929,7 +1062,8 @@ export default function PidGovernancePage() {
                                 {l.sourcingAction}
                               </td>
                             </tr>
-                          ))}
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -947,7 +1081,7 @@ export default function PidGovernancePage() {
                           <th className="py-2 px-2 text-center">Unit</th>
                           <th className="py-2 px-2.5 text-right">Qty</th>
                           <th className="py-2 px-2.5 text-right">Rate (₹)</th>
-                          <th className="py-2 px-2.5 text-right font-bold text-white">Total (₹)</th>
+                          <th className="py-2 px-2.5 text-right font-bold text-white">Total Value (Bucket)</th>
                           <th className="py-2 px-2.5 text-center">Scope</th>
                           <th className="py-2 px-2.5">Rate Rule Flag</th>
                           <th className="py-2 px-2.5">Supply Allocation Action</th>
@@ -966,8 +1100,10 @@ export default function PidGovernancePage() {
                               <td className="py-2 px-2.5 text-xs text-slate-700">{l.trade}</td>
                               <td className="py-2 px-2 text-center text-slate-500 font-mono text-[11px]">{l.unit}</td>
                               <td className="py-2 px-2.5 text-right font-mono">{l.quantity}</td>
-                              <td className="py-2 px-2.5 text-right font-mono">{Math.round(l.unitPrice).toLocaleString("en-IN")}</td>
-                              <td className="py-2 px-2.5 text-right font-mono font-bold text-slate-900">{formatINR(l.preTaxPrice)}</td>
+                              <td className="py-2 px-2.5 text-right font-mono">₹{Math.round(l.unitPrice).toLocaleString("en-IN")}</td>
+                              <td className="py-2 px-2.5 text-right font-mono font-bold">
+                                {renderBucketBadge(l.preTaxPrice)}
+                              </td>
                               <td className="py-2 px-2.5 text-center">{getScopeBadge(l.scopeTag)}</td>
                               <td className="py-2 px-2.5 text-[11px]">
                                 {l.rateRuleFlag === "Rate > ₹2k Override" ? (
